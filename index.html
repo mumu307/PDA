@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDA 领用管理系统</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;background:#f0f2f5;color:#333;font-size:14px;}
+.header{background:linear-gradient(135deg,#1890ff,#096dd9);color:#fff;padding:16px 24px;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px;}
+.header::before{content:'📱';font-size:24px;}
+.tabs{display:flex;background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;gap:0;overflow-x:auto;}
+.tab{padding:14px 24px;cursor:pointer;border-bottom:3px solid transparent;font-weight:500;transition:all .2s;color:#666;font-size:14px;white-space:nowrap;}
+.tab:hover{color:#1890ff;background:#f5f8ff;}
+.tab.active{color:#1890ff;border-bottom-color:#1890ff;font-weight:600;}
+.content{padding:24px;max-width:1400px;margin:0 auto;}
+.page{display:none;}
+.page.active{display:block;}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:24px;}
+@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr);}}
+.stat-card{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:transform .2s;}
+.stat-card:hover{transform:translateY(-2px);}
+.stat-card .label{color:#888;font-size:13px;margin-bottom:8px;}
+.stat-card .value{font-size:32px;font-weight:700;}
+.stat-card:nth-child(1) .value{color:#1890ff;}
+.stat-card:nth-child(2) .value{color:#52c41a;}
+.stat-card:nth-child(3) .value{color:#fa8c16;}
+.stat-card:nth-child(4) .value{color:#f5222d;}
+.stat-card:nth-child(5) .value{color:#722ed1;}
+.stat-card:nth-child(6) .value{color:#13c2c2;}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;}
+.card-title::before{content:'';display:inline-block;width:4px;height:18px;background:#1890ff;border-radius:2px;}
+.btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-primary{background:#1890ff;color:#fff;}.btn-primary:hover:not(:disabled){background:#40a9ff;}
+.btn-success{background:#52c41a;color:#fff;}.btn-success:hover:not(:disabled){background:#73d13d;}
+.btn-danger{background:#f5222d;color:#fff;}.btn-danger:hover:not(:disabled){background:#ff4d4f;}
+.btn-warning{background:#fa8c16;color:#fff;}.btn-warning:hover:not(:disabled){background:#ffa940;}
+.btn-default{background:#fff;color:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color:#1890ff;border-color:#1890ff;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-group{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+input[type=text],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}
+input:focus,select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}
+input[type=file]{display:none;}
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;margin-bottom:6px;font-weight:500;color:#555;font-size:13px;}
+.form-group input,.form-group select{width:100%;max-width:400px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+table{width:100%;border-collapse:collapse;}
+th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #f0f0f0;font-size:13px;}
+th{background:#fafafa;font-weight:600;color:#555;position:sticky;top:0;}
+tr:hover{background:#f5f8ff;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;}
+.badge-success{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
+.badge-warning{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;}
+.badge-danger{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:28px;width:90%;max-width:500px;box-shadow:0 12px 40px rgba(0,0,0,.15);animation:modalIn .2s;}
+@keyframes modalIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+.modal h3{margin-bottom:20px;font-size:18px;display:flex;justify-content:space-between;align-items:center;}
+.modal h3 .close{cursor:pointer;font-size:22px;color:#999;line-height:1;}
+.modal h3 .close:hover{color:#333;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;}
+.empty{text-align:center;padding:40px;color:#bbb;font-size:14px;}
+.search-box input{width:260px;padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;}
+.search-box input:focus{border-color:#1890ff;}
+.info-box{padding:16px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:8px;margin:12px 0;font-size:14px;line-height:1.8;}
+.info-box.danger{background:#fff2f0;border-color:#ffccc7;}
+.info-box.warning{background:#fff7e6;border-color:#ffd591;}
+.highlight{background:#fffbe6;padding:2px 6px;border-radius:4px;font-weight:600;color:#fa8c16;}
+.flex-between{display:flex;justify-content:space-between;align-items:center;}
+.mb-16{margin-bottom:16px;}
+.checkbox-cell{width:40px;text-align:center;}
+input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);z-index:2000;align-items:center;justify-content:center;font-size:16px;color:#666;flex-direction:column;gap:12px;}
+.loading-overlay.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid #e8e8e8;border-top-color:#1890ff;border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sync-badge{position:fixed;bottom:20px;right:20px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.sync-badge.online{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
+.sync-badge.offline{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#f0f2f5;z-index:3000;display:flex;align-items:center;justify-content:center;}
+.login-box{background:#fff;border-radius:12px;padding:36px;width:360px;box-shadow:0 8px 30px rgba(0,0,0,.1);}
+.login-box h2{text-align:center;margin-bottom:24px;font-size:20px;color:#1890ff;}
+.login-box .form-group input{max-width:100%;}
+.login-box .btn{width:100%;justify-content:center;padding:10px;font-size:15px;}
+.login-error{color:#f5222d;font-size:13px;text-align:center;margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div class="login-overlay" id="login-page">
+  <div class="login-box">
+    <h2>📱 PDA 领用管理系统</h2>
+    <div class="form-group"><label>工号</label><input type="text" id="login-empid" placeholder="请输入你的工号" autocomplete="off"></div>
+    <div class="form-group"><label>姓名</label><input type="text" id="login-name" placeholder="请输入你的姓名"></div>
+    <div class="form-group"><label>组别</label>
+      <select id="login-group">
+        <option value="">请选择组别</option>
+        <option>A组</option><option>B组</option><option>C组</option>
+        <option>D组</option><option>E组</option><option>F组</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">登 录</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- 加载状态 -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <span id="loading-text">同步数据中...</span>
+</div>
+
+<!-- 在线/离线状态 -->
+<div class="sync-badge online" id="sync-badge">🟢 在线</div>
+
+<!-- 主界面 -->
+<div class="header">PDA 领用管理系统 <span id="user-info" style="font-size:14px;font-weight:400;margin-left:auto;"></span></div>
+
+<div class="tabs">
+  <div class="tab active" data-page="dashboard">总览看板</div>
+  <div class="tab" data-page="checkout">领用登记</div>
+  <div class="tab" data-page="return">归还登记</div>
+  <div class="tab" data-page="devices">设备台账</div>
+  <div class="tab" data-page="employees">人员管理</div>
+  <div class="tab" data-page="unreturned">未归还</div>
+</div>
+
+<div class="content">
+
+  <div class="page active" id="page-dashboard">
+    <div class="stats">
+      <div class="stat-card"><div class="label">设备总数</div><div class="value" id="stat-total">-</div></div>
+      <div class="stat-card"><div class="label">在库</div><div class="value" id="stat-stock">-</div></div>
+      <div class="stat-card"><div class="label">使用中</div><div class="value" id="stat-using">-</div></div>
+      <div class="stat-card"><div class="label">未归还</div><div class="value" id="stat-unreturned">-</div></div>
+      <div class="stat-card"><div class="label">今日领用</div><div class="value" id="stat-today-out">-</div></div>
+      <div class="stat-card"><div class="label">今日归还</div><div class="value" id="stat-today-in">-</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">各组领用概况</div>
+      <table><thead><tr><th>组别</th><th>总人数</th><th>已领用</th><th>已归还</th><th>未归还</th><th>领用率</th></tr></thead><tbody id="overview-tbody"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="card-title">最近领用记录</div>
+      <table><thead><tr><th>时间</th><th>姓名</th><th>组别</th><th>FA码</th><th>状态</th></tr></thead><tbody id="recent-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-checkout">
+    <div class="card">
+      <div class="card-title">设备领用</div>
+      <div class="form-row">
+        <div class="form-group"><label>FA码 / SN码（扫码或手动输入）</label><input type="text" id="co-code" placeholder="请扫描或输入FA码/SN码" autocomplete="off"></div>
+        <div class="form-group"><label>员工工号</label><input type="text" id="co-empid" placeholder="请输入员工工号" autocomplete="off"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="confirmCheckout()">确认领用</button>
+        <button class="btn btn-default" onclick="clearCheckout()">清空</button>
+      </div>
+      <div id="co-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">今日领用记录</div>
+      <table><thead><tr><th>时间</th><th>姓名</th><th>工号</th><th>组别</th><th>FA码</th><th>SN码</th><th>状态</th></tr></thead><tbody id="co-today-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-return">
+    <div class="card">
+      <div class="card-title">设备归还</div>
+      <div class="form-group"><label>FA码 / SN码（扫码或手动输入）</label><input type="text" id="rt-code" placeholder="请扫描或输入FA码/SN码" autocomplete="off" style="max-width:400px;"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="queryReturn()">查询设备</button>
+        <button class="btn btn-success" id="btn-return" onclick="confirmReturn()" style="display:none;">确认归还</button>
+      </div>
+      <div id="rt-msg"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">今日归还记录</div>
+      <table><thead><tr><th>时间</th><th>姓名</th><th>工号</th><th>组别</th><th>FA码</th><th>SN码</th></tr></thead><tbody id="rt-today-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-devices">
+    <div class="card">
+      <div class="flex-between mb-16"><div class="card-title" style="border:none;padding:0;margin:0;">设备台账</div></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="showAddDeviceModal()">+ 添加设备</button>
+        <button class="btn btn-success" onclick="document.getElementById('import-device-file').click()">导入</button>
+        <button class="btn btn-warning" onclick="downloadDeviceTemplate()">下载模板</button>
+        <button class="btn btn-danger" onclick="batchDeleteDevices()">批量删除</button>
+        <button class="btn btn-default" onclick="exportDevices()">导出</button>
+        <input type="file" id="import-device-file" accept=".csv" onchange="importDevices(this)">
+        <div class="search-box"><input type="text" id="search-device" placeholder="搜索FA码/SN码/组别..." oninput="renderDevices()"></div>
+      </div>
+      <table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="chk-all-dev" onchange="toggleAllDevices(this)"></th><th>FA码</th><th>SN码</th><th>组别</th><th>责任人</th><th>状态</th><th>领用人</th><th>操作</th></tr></thead><tbody id="device-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-employees">
+    <div class="card">
+      <div class="card-title">人员管理</div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="showAddEmpModal()">+ 添加人员</button>
+        <button class="btn btn-success" onclick="document.getElementById('import-emp-file').click()">导入</button>
+        <button class="btn btn-warning" onclick="downloadEmpTemplate()">下载模板</button>
+        <button class="btn btn-danger" onclick="batchDeleteEmps()">批量删除</button>
+        <button class="btn btn-default" onclick="exportEmps()">导出</button>
+        <input type="file" id="import-emp-file" accept=".csv" onchange="importEmps(this)">
+        <div class="search-box"><input type="text" id="search-emp" placeholder="搜索工号/姓名/组别..." oninput="renderEmps()"></div>
+      </div>
+      <table><thead><tr><th class="checkbox-cell"><input type="checkbox" id="chk-all-emp" onchange="toggleAllEmps(this)"></th><th>工号</th><th>姓名</th><th>组别</th><th>操作</th></tr></thead><tbody id="emp-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-unreturned">
+    <div class="card">
+      <div class="card-title">未归还清单</div>
+      <div class="btn-group"><button class="btn btn-default" onclick="exportUnreturned()">导出清单</button></div>
+      <table><thead><tr><th>领用时间</th><th>姓名</th><th>工号</th><th>组别</th><th>FA码</th><th>SN码</th><th>操作</th></tr></thead><tbody id="unreturned-tbody"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modal-add-device">
+  <div class="modal">
+    <h3>添加设备 <span class="close" onclick="closeModal('modal-add-device')">&times;</span></h3>
+    <div class="form-group"><label>FA码</label><input type="text" id="add-dev-fa" placeholder="请输入FA码"></div>
+    <div class="form-group"><label>SN码</label><input type="text" id="add-dev-sn" placeholder="请输入SN码"></div>
+    <div class="form-group"><label>组别</label><input type="text" id="add-dev-group" placeholder="请输入组别"></div>
+    <div class="form-group"><label>责任人</label><input type="text" id="add-dev-owner" placeholder="请输入责任人"></div>
+    <div class="modal-actions"><button class="btn btn-default" onclick="closeModal('modal-add-device')">取消</button><button class="btn btn-primary" onclick="addDevice()">确认添加</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-emp">
+  <div class="modal">
+    <h3>添加人员 <span class="close" onclick="closeModal('modal-add-emp')">&times;</span></h3>
+    <div class="form-group"><label>工号</label><input type="text" id="add-emp-id" placeholder="请输入工号"></div>
+    <div class="form-group"><label>姓名</label><input type="text" id="add-emp-name" placeholder="请输入姓名"></div>
+    <div class="form-group"><label>组别</label><input type="text" id="add-emp-group" placeholder="请输入组别"></div>
+    <div class="modal-actions"><button class="btn btn-default" onclick="closeModal('modal-add-emp')">取消</button><button class="btn btn-primary" onclick="addEmp()">确认添加</button></div>
+  </div>
+</div>
+
+<script>
+// ===== Supabase 配置 =====
+const SUPABASE_URL = 'https://xixtziapkqhdqalrpgfc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpeHR6aWFwa3FoZHFhbHJwZ2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExOTA1MjMsImV4cCI6MjEwNjc2NjUyM30.ZMAts03MAZuv4bvJ9ioorT59P8B_STnVUUEXA3IUwUM';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ===== 全局状态 =====
+let currentUser = null;
+let devices = [];
+let employees = [];
+let records = [];
+
+// ===== 离线队列 =====
+const OFFLINE_KEY = 'pda_offline_queue';
+function getOfflineQueue() { try { return JSON.parse(localStorage.getItem(OFFLINE_KEY)) || []; } catch(e) { return []; } }
+function pushOffline(op) { let q = getOfflineQueue(); q.push(op); localStorage.setItem(OFFLINE_KEY, JSON.stringify(q)); }
+function clearOfflineQueue() { localStorage.removeItem(OFFLINE_KEY); }
+
+// ===== UI 工具 =====
+function showLoading(text) { document.getElementById('loading-text').textContent = text || '同步数据中...'; document.getElementById('loading').classList.add('show'); }
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+function updateSyncBadge() {
+  const badge = document.getElementById('sync-badge');
+  if(navigator.onLine) { badge.className = 'sync-badge online'; badge.textContent = '🟢 在线'; }
+  else { badge.className = 'sync-badge offline'; badge.textContent = '🔴 离线（数据已缓存）'; }
+}
+window.addEventListener('online', () => { updateSyncBadge(); syncOffline(); });
+window.addEventListener('offline', updateSyncBadge);
+updateSyncBadge();
+
+// ===== 登录 =====
+function doLogin() {
+  const empId = document.getElementById('login-empid').value.trim();
+  const name = document.getElementById('login-name').value.trim();
+  const group = document.getElementById('login-group').value;
+  const errEl = document.getElementById('login-error');
+  if(!empId || !name || !group) { errEl.textContent = '请填写完整信息'; return; }
+  // 首次登录自动注册到数据库
+  showLoading('正在登录...');
+  supabase.from('employees').upsert(
+    { emp_id: empId, name: name, group_name: group },
+    { onConflict: 'emp_id' }
+  ).then(res => {
+    if(res.error) { console.warn('注册失败:', res.error); }
+    currentUser = { empId, name, group };
+    document.getElementById('login-page').style.display = 'none';
+    document.getElementById('user-info').textContent = name + ' | ' + group;
+    initApp();
+  });
+}
+document.getElementById('login-empid').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-name').focus(); });
+document.getElementById('login-name').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-group').focus(); });
+
+// ===== 从云端加载数据 =====
+async function loadFromCloud() {
+  showLoading('从云端同步数据...');
+  try {
+    const [devRes, empRes, recRes] = await Promise.all([
+      supabase.from('devices').select('*').order('id', { ascending: false }),
+      supabase.from('employees').select('*').order('id', { ascending: false }),
+      supabase.from('records').select('*').order('id', { ascending: false })
+    ]);
+    if(devRes.error) console.error('设备加载失败:', devRes.error);
+    else devices = devRes.data || [];
+    if(empRes.error) console.error('人员加载失败:', empRes.error);
+    else employees = empRes.data || [];
+    if(recRes.error) console.error('记录加载失败:', recRes.error);
+    else records = recRes.data || [];
+  } catch(e) { console.error('加载异常:', e); }
+  hideLoading();
+}
+
+// ===== 同步离线队列 =====
+async function syncOffline() {
+  const q = getOfflineQueue();
+  if(q.length === 0) return;
+  showLoading('同步离线数据 (' + q.length + ' 条)...');
+  for(const op of q) {
+    try {
+      if(op.action === 'insert') {
+        const { data, error } = await supabase.from(op.table).insert(op.payload);
+        if(error) console.error('同步插入失败:', error);
+      } else if(op.action === 'delete') {
+        await supabase.from(op.table).delete().eq('id', op.id);
+      }
+    } catch(e) { console.error('同步异常:', e); }
+  }
+  clearOfflineQueue();
+  await loadFromCloud();
+  refreshCurrent();
+  hideLoading();
+}
+
+// ===== 云端写入封装（含离线回退） =====
+async function cloudInsert(table, payload) {
+  if(navigator.onLine) {
+    const res = await supabase.from(table).insert(payload);
+    if(res.error) { console.error('插入失败:', res.error); alert('操作失败: ' + res.error.message); }
+    return res;
+  } else {
+    pushOffline({ action: 'insert', table, payload });
+    alert('当前离线，操作已缓存，联网后自动同步');
+    return { data: [payload], error: null };
+  }
+}
+async function cloudDelete(table, id) {
+  if(navigator.onLine) {
+    const res = await supabase.from(table).delete().eq('id', id);
+    if(res.error) { console.error('删除失败:', res.error); alert('删除失败: ' + res.error.message); }
+    return res;
+  } else {
+    pushOffline({ action: 'delete', table, id });
+    alert('当前离线，操作已缓存');
+    return { error: null };
+  }
+}
+
+// ===== 初始化 =====
+async function initApp() {
+  await loadFromCloud();
+  renderDashboard();
+}
+
+// ===== Tab 切换 =====
+document.querySelectorAll('.tab').forEach(function(t) {
+  t.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById('page-' + this.getAttribute('data-page')).classList.add('active');
+    refreshCurrent();
+  });
+});
+
+function refreshCurrent() {
+  const active = document.querySelector('.tab.active').getAttribute('data-page');
+  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned };
+  if(map[active]) map[active]();
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function nowStr() { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+// ===== 总览看板 =====
+function renderDashboard() {
+  const today = todayStr();
+  const inUse = records.filter(r => r.status === '领用');
+  const todayOut = records.filter(r => r.type === '领用' && r.time && r.time.slice(0,10) === today);
+  const todayIn = records.filter(r => r.type === '归还' && r.time && r.time.slice(0,10) === today);
+  document.getElementById('stat-total').textContent = devices.length;
+  document.getElementById('stat-stock').textContent = devices.length - inUse.length;
+  document.getElementById('stat-using').textContent = inUse.length;
+  document.getElementById('stat-unreturned').textContent = inUse.length;
+  document.getElementById('stat-today-out').textContent = todayOut.length;
+  document.getElementById('stat-today-in').textContent = todayIn.length;
+
+  const groups = [];
+  employees.forEach(e => { if(e.group_name && groups.indexOf(e.group_name) === -1) groups.push(e.group_name); });
+  let ovHtml = '';
+  if(groups.length === 0) ovHtml = '<tr><td colspan="6" class="empty">暂无数据</td></tr>';
+  else {
+    groups.forEach(g => {
+      const total = employees.filter(e => e.group_name === g).length;
+      let used = 0;
+      inUse.forEach(r => { const emp = employees.find(e => e.emp_id === r.emp_id); if(emp && emp.group_name === g) used++; });
+      let returned = 0;
+      todayIn.forEach(r => { const emp = employees.find(e => e.emp_id === r.emp_id); if(emp && emp.group_name === g) returned++; });
+      const rate = total > 0 ? (used / total * 100).toFixed(1) + '%' : '0%';
+      ovHtml += '<tr><td>'+g+'</td><td>'+total+'</td><td>'+used+'</td><td>'+returned+'</td><td>'+(used-returned)+'</td><td>'+rate+'</td></tr>';
+    });
+  }
+  document.getElementById('overview-tbody').innerHTML = ovHtml;
+
+  const recent = records.filter(r => r.type === '领用').sort((a,b) => (b.time||'').localeCompare(a.time||'')).slice(0,10);
+  let rh = '';
+  if(recent.length === 0) rh = '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+  else {
+    recent.forEach(r => {
+      const emp = employees.find(e => e.emp_id === r.emp_id);
+      rh += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td><span class="badge badge-warning">领用中</span></td></tr>';
+    });
+  }
+  document.getElementById('recent-tbody').innerHTML = rh;
+}
+
+// ===== 领用登记 =====
+async function confirmCheckout() {
+  const code = document.getElementById('co-code').value.trim();
+  const empId = document.getElementById('co-empid').value.trim();
+  const msgEl = document.getElementById('co-msg');
+  if(!code || !empId) { msgEl.innerHTML = '<div class="info-box danger">请填写FA/SN码和员工工号</div>'; return; }
+  const device = devices.find(d => d.fa === code || d.sn === code);
+  if(!device) { msgEl.innerHTML = '<div class="info-box danger">未找到该设备（FA/SN码：'+code+'），请先在设备台账中添加</div>'; return; }
+  const emp = employees.find(e => e.emp_id === empId);
+  if(!emp) { msgEl.innerHTML = '<div class="info-box danger">未找到该员工（工号：'+empId+'），请先在人员管理中添加</div>'; return; }
+  const inUse = records.find(r => r.fa === device.fa && r.status === '领用');
+  if(inUse) {
+    const bEmp = employees.find(e => e.emp_id === inUse.emp_id);
+    msgEl.innerHTML = '<div class="info-box danger">该设备已被 '+(bEmp?bEmp.name:'-')+' 领用且未归还</div>';
+    return;
+  }
+  showLoading('提交中...');
+  const ts = nowStr();
+  const newRecord = { type: '领用', fa: device.fa, sn: device.sn, emp_id: empId, time: ts, status: '领用' };
+  await cloudInsert('records', newRecord);
+  records.push({ ...newRecord, emp_id: empId });
+  hideLoading();
+  msgEl.innerHTML = '<div class="info-box"><b>'+emp.name+'</b>（'+emp.emp_id+' / '+emp.group_name+'）已成功领用<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span></div>';
+  document.getElementById('co-code').value = '';
+  document.getElementById('co-empid').value = '';
+  renderCoToday();
+}
+function clearCheckout() { document.getElementById('co-code').value=''; document.getElementById('co-empid').value=''; document.getElementById('co-msg').innerHTML=''; }
+
+function renderCoToday() {
+  const today = todayStr();
+  const list = records.filter(r => r.type==='领用' && r.time && r.time.slice(0,10)===today).sort((a,b) => (b.time||'').localeCompare(a.time||''));
+  let html = '';
+  if(list.length === 0) html = '<tr><td colspan="7" class="empty">暂无今日领用记录</td></tr>';
+  else {
+    list.forEach(r => {
+      const emp = employees.find(e => e.emp_id === r.emp_id);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td><td><span class="badge badge-warning">已领用</span></td></tr>';
+    });
+  }
+  document.getElementById('co-today-tbody').innerHTML = html;
+}
+
+// ===== 归还登记 =====
+let pendingReturn = null;
+function queryReturn() {
+  const code = document.getElementById('rt-code').value.trim();
+  const msgEl = document.getElementById('rt-msg');
+  document.getElementById('btn-return').style.display = 'none';
+  pendingReturn = null;
+  if(!code) { msgEl.innerHTML = '<div class="info-box danger">请输入FA/SN码</div>'; return; }
+  const device = devices.find(d => d.fa === code || d.sn === code);
+  if(!device) { msgEl.innerHTML = '<div class="info-box danger">未找到该设备</div>'; return; }
+  const activeRecord = records.find(r => r.fa === device.fa && r.status === '领用');
+  if(!activeRecord) { msgEl.innerHTML = '<div class="info-box warning">该设备当前不在领用状态（可能在库）</div>'; return; }
+  const emp = employees.find(e => e.emp_id === activeRecord.emp_id);
+  pendingReturn = { device, record: activeRecord, emp };
+  msgEl.innerHTML = '<div class="info-box">查询到领用信息：<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span><br>领用人：<b>'+(emp?emp.name:'未知')+'</b>（'+activeRecord.emp_id+' / '+(emp?emp.group_name:'-')+'）<br>领用时间：'+activeRecord.time+'</div>';
+  document.getElementById('btn-return').style.display = 'inline-flex';
+}
+async function confirmReturn() {
+  if(!pendingReturn) return;
+  showLoading('提交中...');
+  const ts = nowStr();
+  pendingReturn.record.status = '已归还';
+  await cloudInsert('records', { type:'归还', fa:pendingReturn.device.fa, sn:pendingReturn.device.sn, emp_id:pendingReturn.record.emp_id, time:ts, status:'已归还' });
+  hideLoading();
+  document.getElementById('rt-msg').innerHTML = '<div class="info-box">设备已成功归还<br>FA码：<span class="highlight">'+pendingReturn.device.fa+'</span></div>';
+  document.getElementById('btn-return').style.display = 'none';
+  pendingReturn = null;
+  renderRtToday();
+}
+function renderRtToday() {
+  const today = todayStr();
+  const list = records.filter(r => r.type==='归还' && r.time && r.time.slice(0,10)===today).sort((a,b) => (b.time||'').localeCompare(a.time||''));
+  let html = '';
+  if(list.length === 0) html = '<tr><td colspan="6" class="empty">暂无今日归还记录</td></tr>';
+  else {
+    list.forEach(r => {
+      const emp = employees.find(e => e.emp_id === r.emp_id);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td></tr>';
+    });
+  }
+  document.getElementById('rt-today-tbody').innerHTML = html;
+}
+
+// ===== 设备台账 =====
+function renderDevices() {
+  const kw = (document.getElementById('search-device') ? document.getElementById('search-device').value : '').toLowerCase();
+  const filtered = devices.filter(d => (d.fa||'').toLowerCase().indexOf(kw)>-1 || (d.sn||'').toLowerCase().indexOf(kw)>-1 || (d.group_name||'').toLowerCase().indexOf(kw)>-1);
+  const inUseFas = {};
+  records.forEach(r => { if(r.status==='领用') inUseFas[r.fa] = true; });
+  let html = '';
+  if(filtered.length === 0) html = '<tr><td colspan="8" class="empty">暂无设备数据</td></tr>';
+  else {
+    for(let i = 0; i < filtered.length; i++) {
+      const d = filtered[i];
+      const realIdx = devices.indexOf(d);
+      const isUsed = !!inUseFas[d.fa];
+      let borrower = '-';
+      if(isUsed) { const rec = records.find(r => r.fa===d.fa && r.status==='领用'); if(rec) borrower = rec.emp_id; }
+      html += '<tr><td class="checkbox-cell"><input type="checkbox" class="dev-cb" value="'+realIdx+'"></td>';
+      html += '<td>'+(d.fa||'')+'</td><td>'+(d.sn||'')+'</td><td>'+(d.group_name||'-')+'</td><td>'+(d.owner||'-')+'</td>';
+      html += '<td><span class="badge '+(isUsed?'badge-warning':'badge-success')+'">'+(isUsed?'已领用':'在库')+'</span></td>';
+      html += '<td>'+borrower+'</td>';
+      html += '<td><button class="btn btn-danger btn-sm" onclick="deleteDevice('+realIdx+')">删除</button></td></tr>';
+    }
+  }
+  document.getElementById('device-tbody').innerHTML = html;
+}
+function showAddDeviceModal() { ['add-dev-fa','add-dev-sn','add-dev-group','add-dev-owner'].forEach(id => document.getElementById(id).value=''); openModal('modal-add-device'); }
+async function addDevice() {
+  const fa = document.getElementById('add-dev-fa').value.trim();
+  const sn = document.getElementById('add-dev-sn').value.trim();
+  const group = document.getElementById('add-dev-group').value.trim();
+  const owner = document.getElementById('add-dev-owner').value.trim();
+  if(!fa) { alert('FA码不能为空'); return; }
+  if(devices.find(d => d.fa === fa)) { alert('FA码已存在'); return; }
+  showLoading('添加中...');
+  await cloudInsert('devices', { fa, sn, group_name: group, owner });
+  devices.unshift({ fa, sn, group_name: group, owner });
+  hideLoading();
+  closeModal('modal-add-device');
+  renderDevices();
+}
+async function deleteDevice(idx) {
+  if(!confirm('确定删除该设备？')) return;
+  const d = devices[idx];
+  showLoading('删除中...');
+  await cloudDelete('devices', d.id);
+  devices.splice(idx, 1);
+  hideLoading();
+  renderDevices();
+}
+function toggleAllDevices(cb) { document.querySelectorAll('.dev-cb').forEach(c => c.checked = cb.checked); }
+async function batchDeleteDevices() {
+  const cbs = document.querySelectorAll('.dev-cb:checked');
+  if(cbs.length === 0) { alert('请先勾选要删除的设备'); return; }
+  if(!confirm('确定删除选中的 '+cbs.length+' 条设备记录？')) return;
+  showLoading('删除中...');
+  const checked = Array.from(cbs).map(c => parseInt(c.value)).sort((a,b) => b-a);
+  for(const idx of checked) {
+    const d = devices[idx];
+    await cloudDelete('devices', d.id);
+    devices.splice(idx, 1);
+  }
+  hideLoading();
+  document.getElementById('chk-all-dev').checked = false;
+  renderDevices();
+}
+function downloadDeviceTemplate() { downloadFile('设备导入模板.csv', '\uFEFFFA码,SN码,组别,责任人\nFA001,SN001,A组,张三\nFA002,SN002,B组,李四'); }
+function importDevices(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    let looksGarbled = false;
+    for(let ci=0; ci<text.length; ci++) {
+      const cc = text.charCodeAt(ci);
+      if(cc>=0x20&&cc<=0x7E)continue; if(cc===0x0D||cc===0x0A||cc===0x09||cc===0x2C||cc===0xFEFF)continue;
+      if(cc>=0x4E00&&cc<=0x9FFF)continue; if(cc>=0xFF01&&cc<=0xFF5E)continue;
+      looksGarbled=true; break;
+    }
+    if(looksGarbled) { const r2=new FileReader(); r2.onload=function(e2){ parseDeviceCSV(e2.target.result); }; r2.readAsText(file,'GBK'); return; }
+    parseDeviceCSV(text);
+  };
+  reader.readAsText(file,'UTF-8'); input.value='';
+}
+function parseDeviceCSV(text) {
+  const lines = text.split(/\r?\n/);
+  const valid = lines.filter(l => l.trim());
+  if(valid.length < 2) { alert('模板数据为空'); return; }
+  let count = 0;
+  for(let i=1; i<valid.length; i++) {
+    const cols = valid[i].split(',');
+    if(cols.length < 2) continue;
+    const fa = cols[0]?cols[0].trim():''; if(!fa) continue;
+    if(devices.find(d => d.fa === fa)) continue;
+    devices.unshift({ fa, sn: cols[1]?cols[1].trim():'', group_name: cols[2]?cols[2].trim():'', owner: cols[3]?cols[3].trim():'' });
+    count++;
+  }
+  if(count > 0) { showLoading('上传中...'); cloudInsert('devices', devices.slice(0, count).map(d => ({ fa:d.fa, sn:d.sn, group_name:d.group_name, owner:d.owner }))); hideLoading(); }
+  renderDevices();
+  alert('成功导入 '+count+' 条设备数据');
+}
+function exportDevices() {
+  let csv = '\uFEFFFA码,SN码,组别,责任人,状态\n';
+  const inUseFas = {}; records.forEach(r => { if(r.status==='领用') inUseFas[r.fa]=true; });
+  devices.forEach(d => { csv += d.fa+','+d.sn+','+(d.group_name||'')+','+(d.owner||'')+','+(inUseFas[d.fa]?'已领用':'在库')+'\n'; });
+  downloadFile('设备台账.csv', csv);
+}
+
+// ===== 人员管理 =====
+function renderEmps() {
+  const kw = (document.getElementById('search-emp') ? document.getElementById('search-emp').value : '').toLowerCase();
+  const filtered = employees.filter(e => (e.emp_id||'').toLowerCase().indexOf(kw)>-1 || (e.name||'').toLowerCase().indexOf(kw)>-1 || (e.group_name||'').toLowerCase().indexOf(kw)>-1);
+  let html = '';
+  if(filtered.length === 0) html = '<tr><td colspan="5" class="empty">暂无人员数据</td></tr>';
+  else {
+    for(let i=0; i<filtered.length; i++) {
+      const e = filtered[i]; const realIdx = employees.indexOf(e);
+      html += '<tr><td class="checkbox-cell"><input type="checkbox" class="emp-cb" value="'+realIdx+'"></td>';
+      html += '<td>'+(e.emp_id||'')+'</td><td>'+(e.name||'')+'</td><td>'+(e.group_name||'-')+'</td>';
+      html += '<td><button class="btn btn-danger btn-sm" onclick="deleteEmp('+realIdx+')">删除</button></td></tr>';
+    }
+  }
+  document.getElementById('emp-tbody').innerHTML = html;
+}
+function showAddEmpModal() { ['add-emp-id','add-emp-name','add-emp-group'].forEach(id => document.getElementById(id).value=''); openModal('modal-add-emp'); }
+async function addEmp() {
+  const empId = document.getElementById('add-emp-id').value.trim();
+  const name = document.getElementById('add-emp-name').value.trim();
+  const group = document.getElementById('add-emp-group').value.trim();
+  if(!empId || !name) { alert('工号和姓名不能为空'); return; }
+  if(employees.find(e => e.emp_id === empId)) { alert('工号已存在'); return; }
+  showLoading('添加中...');
+  await cloudInsert('employees', { emp_id: empId, name, group_name: group });
+  employees.unshift({ emp_id: empId, name, group_name: group });
+  hideLoading();
+  closeModal('modal-add-emp');
+  renderEmps();
+}
+async function deleteEmp(idx) {
+  if(!confirm('确定删除该人员？')) return;
+  const e = employees[idx];
+  showLoading('删除中...');
+  await cloudDelete('employees', e.id);
+  employees.splice(idx, 1);
+  hideLoading();
+  renderEmps();
+}
+function toggleAllEmps(cb) { document.querySelectorAll('.emp-cb').forEach(c => c.checked = cb.checked); }
+async function batchDeleteEmps() {
+  const cbs = document.querySelectorAll('.emp-cb:checked');
+  if(cbs.length === 0) { alert('请先勾选要删除的人员'); return; }
+  if(!confirm('确定删除选中的 '+cbs.length+' 条人员记录？')) return;
+  showLoading('删除中...');
+  const checked = Array.from(cbs).map(c => parseInt(c.value)).sort((a,b) => b-a);
+  for(const idx of checked) {
+    const e = employees[idx];
+    await cloudDelete('employees', e.id);
+    employees.splice(idx, 1);
+  }
+  hideLoading();
+  document.getElementById('chk-all-emp').checked = false;
+  renderEmps();
+}
+function downloadEmpTemplate() { downloadFile('人员导入模板.csv', '\uFEFF工号,姓名,组别\nE001,张三,A组\nE002,李四,B组'); }
+function importEmps(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    let looksGarbled = false;
+    for(let ci=0; ci<text.length; ci++) {
+      const cc = text.charCodeAt(ci);
+      if(cc>=0x20&&cc<=0x7E)continue; if(cc===0x0D||cc===0x0A||cc===0x09||cc===0x2C||cc===0xFEFF)continue;
+      if(cc>=0x4E00&&cc<=0x9FFF)continue; if(cc>=0xFF01&&cc<=0xFF5E)continue;
+      looksGarbled=true; break;
+    }
+    if(looksGarbled) { const r2=new FileReader(); r2.onload=function(e2){ parseEmpCSV(e2.target.result); }; r2.readAsText(file,'GBK'); return; }
+    parseEmpCSV(text);
+  };
+  reader.readAsText(file,'UTF-8'); input.value='';
+}
+function parseEmpCSV(text) {
+  const lines = text.split(/\r?\n/);
+  const valid = lines.filter(l => l.trim());
+  if(valid.length < 2) { alert('模板数据为空'); return; }
+  let count = 0;
+  for(let i=1; i<valid.length; i++) {
+    const cols = valid[i].split(',');
+    if(cols.length < 2) continue;
+    const empId = cols[0]?cols[0].trim():''; if(!empId) continue;
+    if(employees.find(e => e.emp_id === empId)) continue;
+    employees.unshift({ emp_id: empId, name: cols[1]?cols[1].trim():'', group_name: cols[2]?cols[2].trim():'' });
+    count++;
+  }
+  if(count > 0) { showLoading('上传中...'); cloudInsert('employees', employees.slice(0, count).map(e => ({ emp_id:e.emp_id, name:e.name, group_name:e.group_name }))); hideLoading(); }
+  renderEmps();
+  alert('成功导入 '+count+' 条人员数据');
+}
+function exportEmps() {
+  let csv = '\uFEFF工号,姓名,组别\n';
+  employees.forEach(e => { csv += e.emp_id+','+e.name+','+(e.group_name||'')+'\n'; });
+  downloadFile('人员清单.csv', csv);
+}
+
+// ===== 未归还 =====
+function renderUnreturned() {
+  const list = records.filter(r => r.status==='领用').sort((a,b) => (a.time||'').localeCompare(b.time||''));
+  let html = '';
+  if(list.length === 0) html = '<tr><td colspan="7" class="empty">所有设备均已归还</td></tr>';
+  else {
+    list.forEach(r => {
+      const emp = employees.find(e => e.emp_id === r.emp_id);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'未知')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td>';
+      html += '<td><button class="btn btn-success btn-sm" onclick="quickReturn(\''+r.fa+'\')">快速归还</button></td></tr>';
+    });
+  }
+  document.getElementById('unreturned-tbody').innerHTML = html;
+}
+async function quickReturn(fa) {
+  const record = records.find(r => r.fa===fa && r.status==='领用'); if(!record) return;
+  showLoading('归还中...');
+  const ts = nowStr();
+  record.status = '已归还';
+  await cloudInsert('records', { type:'归还', fa:record.fa, sn:record.sn, emp_id:record.emp_id, time:ts, status:'已归还' });
+  hideLoading();
+  renderUnreturned();
+}
+function exportUnreturned() {
+  let csv = '\uFEFF领用时间,姓名,工号,组别,FA码,SN码\n';
+  records.filter(r => r.status==='领用').forEach(r => {
+    const emp = employees.find(e => e.emp_id === r.emp_id);
+    csv += (r.time||'')+','+(emp?emp.name:'')+','+r.emp_id+','+(emp?emp.group_name:'')+','+(r.fa||'')+','+(r.sn||'')+'\n';
+  });
+  downloadFile('未归还清单.csv', csv);
+}
+
+// ===== 通用 =====
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function downloadFile(name, content) {
+  const blob = new Blob([content], { type:'text/csv;charset=utf-8;' });
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = name; link.click(); URL.revokeObjectURL(link.href);
+}
+
+// 回车快捷
+document.getElementById('co-code').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('co-empid').focus(); }});
+document.getElementById('co-empid').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); confirmCheckout(); }});
+document.getElementById('rt-code').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); queryReturn(); }});
+</script>
+</body>
+</html>
