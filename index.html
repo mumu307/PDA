@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PDA 领用管理系统</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
+<script src="https://cdn.onmicrosoft.cn/npm/@supabase/supabase-js@2"></script>脚本 src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></脚本>.net/npm/@supabase/supabase-js@2</脚本>
+<style样式样式样式样式样式样式样式样式>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;background:#f0f2f5;color:#333;font-size:14px;}
-.header{background:linear-gradient(135deg,#1890ff,#096dd9);color:#fff;padding:16px 24px;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px;}
-.header::before{content:'📱';font-size:24px;}
-.tabs{display:flex;background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;gap:0;overflow-x:auto;}
-.tab{padding:14px 24px;cursor:pointer;border-bottom:3px solid transparent;font-weight:500;transition:all .2s;color:#666;font-size:14px;white-space:nowrap;}
-.tab:hover{color:#1890ff;background:#f5f8ff;}
-.tab.active{color:#1890ff;border-bottom-color:#1890ff;font-weight:600;}
-.content{padding:24px;max-width:1400px;margin:0 auto;}
-.page{display:none;}
-.page.active{display:block;}
-.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:24px;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;background:#f0f2f5;color:#333;font-size:14px;}body正文正文{font-family字体系列字体系列:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;background背景:#f0f2f5;color颜色:#333;字体大小:14px;}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;background:#f0f2f5;color:#333;字体大小:14px;}主体正文正文{字体系列字体系列:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft YaHei',sans-serif;背景背景:#f0f2f5;颜色颜色:#333;字体大小:14px;}
+.header{background:linear-gradient(135deg,#1890ff,#096dd9);color颜色:#fff;padding:16px 24px;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px;}页眉{背景:线性渐变(135度,#1890ff,#096dd9);颜色:#fff;内边距:16px 24px;字体大小:20px;字体粗细:600;显示方式:弹性布局;对齐方式:居中;间距:10px;}.头部{背景:线性渐变(135度,#1890ff,#096dd9);颜色:#fff;内边距16px 24字体大小20字体粗细600显示弹性布局对齐方式居中间距.头部{背景:线性渐变(135度,#1890ff,#096dd9);颜色:#fff;内边距16px 24字体大小20字体粗细600显示弹性布局对齐方式居中间距头部内边距16px 24字体大小20字体粗细600显示弹性布局对齐方式居中间距.header{background:linear-gradient(135deg,#1890ff,#096dd9);color颜色:#fff;padding:16px 24px;font-size:20px;font-weight:600;display:flex;align-items:center;gap:10px;}页眉{背景:线性渐变(135度,#1890ff,#096dd9);颜色:#fff;内边距:16px 24px;字体大小:20px;字体粗细:600;显示方式:弹性布局;对齐方式:居中;间距:10px;}.头部{背景:线性渐变(135度,#1890ff,#096dd9);颜色:#fff;内边距16px 24字体大小20字体粗细600显示弹性布局对齐方式居中间距头部内边距16px 24字体大小20字体粗细600显示弹性布局对齐方式居中间距
+.header::before{content:'📱';font-size:24px;}标题::之前{内容:'📱';字体大小:24px;}.标题之前内容字体大小.标题之前{内容:'';字体大小24px}标题之前内容字体大小标题之前内容字体大小
+.tabs{display:flex;background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;gap:0;overflow-x:auto;}选项卡{display:flex;background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;gap:0;overflow-x:auto;}.选项卡{显示:弹性布局;背景:#fff;下边框:2像素 实线 #e8e8e8;内边距:0 24像素;间距:0;水平溢出:自动;}选项卡{显示:弹性布局;背景:#fff;下边框:2像素 实线 #e8e8e8;内边距:0 24像素;间距:0;水平溢出:自动;}.选项卡{显示:弹性布局;背景:#fff;下边框2像素 实线 #e8e8e8;内边距024间距水平溢出自动.tabs{display:flex;background:#fff;border-bottom:2px solid #e8e8e8;padding:0 24px;gap:0;overflow-x:auto;}选项卡{display:flex;background:#fff;下边框:2像素 实线 #e8e8e8;内边距:0 24像素;间距:0;水平溢出:自动;}选项卡{显示:弹性布局;背景:#fff;下边框:2像素 实线 #e8e8e8;内边距:0 24像素;间距:0;水平溢出:自动;}选项卡{显示:弹性布局;背景:#fff;下边框:2像素 实线 #e8e8e8;内边距:0 24像素;间距:0;水平溢出:自动;}.选项卡{显示:弹性布局;背景:#fff;下边框2像素 实线 #e8e8e8;内边距024间距水平溢出自动
+.tab{padding:14px 24px;cursor:pointer;border-bottom:3px solid transparent;font-weight:500;transition:all .2s;color:#666;font-size:14px;white-space:nowrap;}选项卡{内边距:14像素 24像素;光标:指针;下边框:3像素 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14像素;空白:不换行;}.选项卡{内边距:14px 24px;光标:指针;下边框:3px 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14px;空白:不换行;}选项卡{内边距:14像素 24像素;光标:指针;下边框:3像素 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14像素;空白:不换行;}.选项卡{内边距:14px 24px;光标:指针;下边框:3px 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14px;空白:不换行;}选项卡{内边距:14像素 24像素;光标:指针;下边框:3像素 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14像素;空白:不换行;}.选项卡{内边距:14px 24px;光标:指针;下边框:3px 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14px;空白:不换行;}选项卡{内边距:14像素 24像素;光标:指针;下边框:3像素 实线 透明;字体粗细:500;过渡:所有属性 .2秒;颜色:#666;字体大小:14像素;空白:不换行;}
+.tab:hover{color颜色:#1890ff;background:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.tab:hover{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.tab:hover{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.tab:hover{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.tab:hover{颜色:#1890ff;背景:#f5f8ff;}制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}.制表符:悬停{颜色:#1890ff;背景:#f5f8ff;}
+.tab.active{color:#1890ff;border-bottom-color:#1890ff;font-weight:600;}选项卡.激活{颜色:#1890ff;下边框颜色:#1890ff;字体粗细:600;}.选项卡激活{颜色:#1890ff;下边框颜色字体粗细：600；}选项卡激活颜色下边框颜色字体粗细.选项卡.激活{颜色:#1890ff;下边框颜色:#1890ff;字体粗细:600;}选项卡.激活{颜色:#1890ff;下边框颜色:#1890ff;字体粗细:600;}.选项卡激活{颜色:#1890ff;下边框颜色字体粗细：600；}选项卡激活颜色下边框颜色字体粗细
+.content{padding:24px;max-width:1400px;margin:0 auto;}内容{内边距:24px;最大宽度:1400px;外边距:0 自动;}.内容{内边距:24px像素;最大宽度:1400px像素;外边距:0 自动;}内容{内边距:24px像素;最大宽度:1400px像素;外边距:0 自动;}.内容{内边距:24px;最大宽度:1400px;外边距:0 自动;}内容{内边距:24px;最大宽度:1400px;外边距:0 自动;}.内容{内边距:24px像素;最大宽度:1400px像素;外边距:0 自动;}内容{内边距:24px像素;最大宽度:1400px像素;外边距:0 自动;}
+.page{display:none;}页面{显示:隐藏;}.页面{display显示:none无;}页面{显示:隐藏;}.页面{display:none;}页面{显示:隐藏;}.页面{display显示:none无;}页面{显示:隐藏;}
+.page页面.active活跃{display显示:block块;}页面.激活{显示:块级;}.页面.active活跃{display显示:block块;}页面.激活{显示:块级;}.页面.活跃{显示:块;}页面.激活{显示:块级;}.页面.活跃{显示:块;}页面.激活{显示:块级;}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:24px;}统计{显示:网格;网格模板列:重复(6,1fr);间距:16像素;底部边距:24像素;}.统计{显示:网格;grid-template-columns网格模板列:repeat重复(6,1fr法语);gap间距:16px像素;margin-bottom底部外边距:24px;}统计{显示:网格;网格模板列:重复(6,1fr);间距:16像素;底部边距:24像素;}.统计{显示:网格;网格模板列:重复(6,1fr);间距:16px;底部边距:24px;}统计{显示:网格;网格模板列:重复(6,1fr);间距:16像素;底部边距:24像素;}.统计{显示:网格;grid-template-columns网格模板列:repeat重复(6,1fr法语);gap间距:16px像素;margin-bottom底部外边距:24px;}统计{显示:网格;网格模板列:重复(6,1fr);间距:16像素;底部边距:24像素;}
 @media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr);}}
-.stat-card{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:transform .2s;}
+.stat-card{background:#fff;border-radius:12px;padding:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:transform .2s;}stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2s;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;box-shadow:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;box-shadow:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;box-shadow:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2s;}stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;box-shadow:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;盒阴影:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}.stat-card{背景:#fff;圆角:12px;内边距:20px;文本对齐:居中;box-shadow:0 2px 8px rgba(0,0,0,.06);过渡:变换 .2秒;}
 .stat-card:hover{transform:translateY(-2px);}
 .stat-card .label{color:#888;font-size:13px;margin-bottom:8px;}
 .stat-card .value{font-size:32px;font-weight:700;}
@@ -29,62 +29,62 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft Y
 .stat-card:nth-child(4) .value{color:#f5222d;}
 .stat-card:nth-child(5) .value{color:#722ed1;}
 .stat-card:nth-child(6) .value{color:#13c2c2;}
-.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
-.card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}卡片{背景颜色:#fff;圆角半径:12px;内边距:20px;底部外边距:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}.card卡片{background背景背景:#fff;border-radius:12px;内边距:20px;底部外边距:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}卡片{背景颜色:#fff;圆角半径:12px;内边距:20px;底部外边距:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:8px;}card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;显示:弹性布局;对齐项目:居中;间距:8px;}.card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;显示:弹性布局;对齐项目:居中;间距:8px;}card-title{font-size:16px;font-weight:600;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;显示:弹性布局;对齐项目:居中;间距:8px;}
 .card-title::before{content:'';display:inline-block;width:4px;height:18px;background:#1890ff;border-radius:2px;}
-.btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}按钮{内边距:8px 20;无边框圆角6光标指针字体大小13字体粗细500过渡所有属性.2秒显示内联弹性布局对齐项目居中间距}.按钮{内边距:8像素 20;无边框圆角半径6光标指针字体大小13字体粗细500过渡效果所有属性0.2sdisplayinline-flexalign-itemscentergap}按钮内边距无边框圆角6光标指针字体大小13字体粗细500过渡所有属性秒显示内联弹性布局对齐项目居中间距
+.btn:disabled{opacity:.5;cursor:not-allowed;}按钮:禁用{透明度:.5;光标:不可用;}.按钮:禁用{透明度:.5;光标:不可用;}按钮:禁用{透明度:.5;光标:不可用;}
 .btn-primary{background:#1890ff;color:#fff;}.btn-primary:hover:not(:disabled){background:#40a9ff;}
 .btn-success{background:#52c41a;color:#fff;}.btn-success:hover:not(:disabled){background:#73d13d;}
 .btn-danger{background:#f5222d;color:#fff;}.btn-danger:hover:not(:disabled){background:#ff4d4f;}
 .btn-warning{background:#fa8c16;color:#fff;}.btn-warning:hover:not(:disabled){background:#ffa940;}
-.btn-default{background:#fff;color:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color:#1890ff;border-color:#1890ff;}
-.btn-sm{padding:5px 12px;font-size:12px;}
-.btn-group{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
-input[type=text],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}
-input:focus,select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}
+.btn-default{background:#fff;color:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color:#1890ff;border-color:#1890ff;}btn-default{background:#fff;color颜色:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color颜色:#1890ff;边框颜色:#1890ff;}
+.btn-sm{padding:5px 12px;font-size:12px;}btn-sm{内边距:5px 12px;字体大小:12px;}
+.btn-group{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}按钮组{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+input[type=text],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}输入[类型=文本],选择{内边距:9像素 12像素;边框:1像素 实线 #d9d9d9;border-radius:6像素;font-size:14像素;outline:none;transition:border-color .2s;}
+input:focus,select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}输入:聚焦,选中:聚焦{边框颜色:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}
 input[type=file]{display:none;}
 .form-group{margin-bottom:16px;}
 .form-group label{display:block;margin-bottom:6px;font-weight:500;color:#555;font-size:13px;}
 .form-group input,.form-group select{width:100%;max-width:400px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-table{width:100%;border-collapse:collapse;}
+table{width:100%;border-collapse:collapse;}表格{宽度:100%;边框折叠:折叠;}
 th,td{padding:12px 14px;text-align:left;border-bottom:1px solid #f0f0f0;font-size:13px;}
-th{background:#fafafa;font-weight:600;color:#555;position:sticky;top:0;}
+th{background:#fafafa;font-weight:600;color:#555;position:sticky;top:0;}th{背景:#fafafa;字体粗细:600;颜色:#555;定位:固定;顶部:0;}
 tr:hover{background:#f5f8ff;}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;}
-.badge-success{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
-.badge-warning{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;}
-.badge-danger{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;}徽章{显示:行内块;内边距:3像素 10像素;圆角:20像素;字体大小:12像素;字体粗细:500;}
+.badge-success{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}badge-success{背景:#f6ffed;颜色:#52c41a;边框:1px 实线 #b7eb8f;}
+.badge-warning{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;}badge-warning{背景:#fff7e6;颜色:#fa8c16;边框:1px 实线 #ffd591;}
+.badge-danger{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}badge-danger{background:#fff2f0;color颜色:#f5222d;border:1px solid #ffccc7;}
 .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;}
 .modal-overlay.show{display:flex;}
-.modal{background:#fff;border-radius:12px;padding:28px;width:90%;max-width:500px;box-shadow:0 12px 40px rgba(0,0,0,.15);animation:modalIn .2s;}
-@keyframes modalIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
-.modal h3{margin-bottom:20px;font-size:18px;display:flex;justify-content:space-between;align-items:center;}
-.modal h3 .close{cursor:pointer;font-size:22px;color:#999;line-height:1;}
-.modal h3 .close:hover{color:#333;}
+.modal{background:#fff;border-radius:12px;padding:28px;width:90%;max-width:500px;box-shadow:0 12px 40px rgba(0,0,0,.15);animation:modalIn .2s;}modal{background背景:#fff;border-radius:12px;内边距:28px;宽度:90%;最大宽度:500px;盒阴影:0 12px 40px rgba(0,0,0,.15);动画:modalIn .2s;}
+@keyframes modalIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}@keyframes modalIn{从{opacity:0;transform:translateY(-20px)}到{opacity:1;transform:无}}
+.modal h3{margin-bottom:20px;font-size:18px;display:flex;justify-content:space-between;align-items:center;}.模态框 h3{margin-bottom底部外边距:20px;font-size字体大小:18px;display显示方式:flex弹性布局;justify-content:space-between;align-items对齐项目:center居中;}
+.modal h3 .close{cursor:pointer;font-size:22px;color:#999;line-height:1;}.模态框 h3 .关闭{光标:指针;字体大小:22px;颜色:#999;行高:1;}
+.modal h3 .close:hover{color:#333;}.模态框 h3 .关闭:悬停{颜色:#333;}
 .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;}
-.empty{text-align:center;padding:40px;color:#bbb;font-size:14px;}
-.search-box input{width:260px;padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;}
+.empty{text-align:center;padding:40px;color:#bbb;font-size:14px;}.空{文本对齐:居中;内边距:40px;颜色:#bbb;字体大小:14px;}
+.search-box input{width:260px;padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;}.搜索框 输入框{宽度:260像素;内边距:9像素 12像素;边框:1像素 实线 #d9d9d9;border-radius:6像素;font-size:14像素;outline:none;}
 .search-box input:focus{border-color:#1890ff;}
-.info-box{padding:16px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:8px;margin:12px 0;font-size:14px;line-height:1.8;}
+.info-box{padding:16px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:8px;margin:12px 0;font-size:14px;line-height:1.8;}.信息框{内边距:16px;背景:#f6ffed;边框:1px 实线 #b7eb8f;border-radius:8px;margin:12px 0;font-size:14px;line-height:1.8;}
 .info-box.danger{background:#fff2f0;border-color:#ffccc7;}
-.info-box.warning{background:#fff7e6;border-color:#ffd591;}
-.highlight{background:#fffbe6;padding:2px 6px;border-radius:4px;font-weight:600;color:#fa8c16;}
+.info-box.warning{background:#fff7e6;border-color:#ffd591;}.信息框.警告{背景:#fff7e6;边框颜色:#ffd591;}
+.highlight{background:#fffbe6;padding:2px 6px;border-radius:4px;font-weight:600;color:#fa8c16;}.高亮{背景:#fffbe6;内边距:2px 6px;圆角:4px;字体粗细:600;颜色:#fa8c16;}
 .flex-between{display:flex;justify-content:space-between;align-items:center;}
 .mb-16{margin-bottom:16px;}
-.checkbox-cell{width:40px;text-align:center;}
-input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
+.checkbox-cell{width:40px;text-align:center;}.复选框单元格{宽度:40像素;文本对齐:居中;}
+input[type=checkbox]{width:16px;height:16px;cursor:pointer;}输入[类型=复选框]{宽度:16像素;高度:16像素;光标:指针;}
 .loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);z-index:2000;align-items:center;justify-content:center;font-size:16px;color:#666;flex-direction:column;gap:12px;}
 .loading-overlay.show{display:flex;}
-.spinner{width:36px;height:36px;border:3px solid #e8e8e8;border-top-color:#1890ff;border-radius:50%;animation:spin .8s linear infinite;}
+.spinner{width:36px;height:36px;border:3px solid #e8e8e8;border-top-color:#1890ff;border-radius:50%;animation:spin .8s linear infinite;}.旋转器{宽度:36像素;高度:36像素;边框:3像素 实线 #e8e8e8;上边框颜色:#1890ff;边框半径:50%;动画:旋转 .8秒 线性 无限循环;}
 @keyframes spin{to{transform:rotate(360deg)}}
-.sync-badge{position:fixed;bottom:20px;right:20px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.15);}
-.sync-badge.online{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
-.sync-badge.offline{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
+.sync-badge{position:fixed;bottom:20px;right:20px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.15);}.同步徽章{位置:固定;底部:20像素;右侧:20像素;内边距:6像素 14像素;圆角:20像素;字体大小:12像素;字体粗细:500;层叠顺序:999;阴影:0 2像素 8像素 rgba(0,0,0,.15);}
+.sync-badge.online{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}.同步徽章.在线{背景:#f6ffed;颜色:#52c41a;边框:1像素 实线 #b7eb8f;}
+.sync-badge.offline{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}.同步徽章.离线{背景:#fff2f0;颜色:#f5222d;边框:1像素 实线 #ffccc7;}
 .login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#f0f2f5;z-index:3000;display:flex;align-items:center;justify-content:center;}
-.login-box{background:#fff;border-radius:12px;padding:36px;width:360px;box-shadow:0 8px 30px rgba(0,0,0,.1);}
-.login-box h2{text-align:center;margin-bottom:24px;font-size:20px;color:#1890ff;}
+.login-box{background:#fff;border-radius:12px;padding:36px;width:360px;box-shadow:0 8px 30px rgba(0,0,0,.1);}.login-box{background:#fff;border-radius:12px;内边距:36px;宽度:360px;盒阴影:0 8px 30px rgba(0,0,0,.1);}
+.login-box h2{text-align:center;margin-bottom:24px;font-size:20px;color:#1890ff;}.登录框 h2{文本对齐:居中;底部边距:24像素;字体大小:20像素;颜色:#1890ff;}
 .login-box .form-group input{max-width:100%;}
 .login-box .btn{width:100%;justify-content:center;padding:10px;font-size:15px;}
 .login-error{color:#f5222d;font-size:13px;text-align:center;margin-top:8px;}
