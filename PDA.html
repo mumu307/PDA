@@ -92,32 +92,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 </head>
 <body>
 
-<!-- 登录页 -->
-<div class="login-overlay" id="login-page">
-  <div class="login-box">
-    <h2>📱 PDA 领用管理系统</h2>
-    <div class="form-group"><label>工号</label><input type="text" id="login-empid" placeholder="请输入你的工号" autocomplete="off"></div>
-    <div class="form-group"><label>姓名</label><input type="text" id="login-name" placeholder="请输入你的姓名"></div>
-    <div class="form-group"><label>组别</label>
-      <select id="login-group">
-        <option value="">请选择组别</option>
-        <option>A组</option><option>B组</option><option>C组</option>
-        <option>D组</option><option>E组</option><option>F组</option>
-      </select>
-    </div>
-    <button class="btn btn-primary" onclick="doLogin()">登 录</button>
-    <div class="login-error" id="login-error"></div>
-  </div>
-</div>
 
-<!-- 加载状态 -->
-<div class="loading-overlay" id="loading">
-  <div class="spinner"></div>
-  <span id="loading-text">同步数据中...</span>
-</div>
-
-<!-- 在线/离线状态 -->
-<div class="sync-badge online" id="sync-badge">🟢 在线</div>
 
 <!-- 主界面 -->
 <div class="header">PDA 领用管理系统 <span id="user-info" style="font-size:14px;font-weight:400;margin-left:auto;"></span></div>
