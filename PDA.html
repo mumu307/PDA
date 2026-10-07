@@ -75,7 +75,7 @@ tr:hover{background:#f5f8ff;}
 .mb-16{margin-bottom:16px;}
 .checkbox-cell{width:40px;text-align:center;}
 input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
-.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);z-index:2000;align-items:center;justify-content:center;font-size:16px;color:#666;flex-direction:column;gap:12px;}
+.loading-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.8);z-index:4000;align-items:center;justify-content:center;font-size:16px;color:#666;flex-direction:column;gap:12px;}
 .loading-overlay.show{display:flex;}
 .spinner{width:36px;height:36px;border:3px solid #e8e8e8;border-top-color:#1890ff;border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -93,6 +93,33 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 <body>
 
 
+
+<!-- 登录页 -->
+<div class="login-overlay" id="login-page">
+  <div class="login-box">
+    <h2>📱 PDA 领用管理系统</h2>
+    <div class="form-group"><label>工号</label><input type="text" id="login-empid" placeholder="请输入你的工号" autocomplete="off"></div>
+    <div class="form-group"><label>姓名</label><input type="text" id="login-name" placeholder="请输入你的姓名"></div>
+    <div class="form-group"><label>组别</label>
+      <select id="login-group">
+        <option value="">请选择组别</option>
+        <option>A组</option><option>B组</option><option>C组</option>
+        <option>D组</option><option>E组</option><option>F组</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">登 录</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- 加载状态 -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <span id="loading-text">同步数据中...</span>
+</div>
+
+<!-- 在线/离线状态 -->
+<div class="sync-badge online" id="sync-badge">🟢 在线</div>
 
 <!-- 主界面 -->
 <div class="header">PDA 领用管理系统 <span id="user-info" style="font-size:14px;font-weight:400;margin-left:auto;"></span></div>
@@ -230,7 +257,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 // ===== Supabase 配置 =====
 const SUPABASE_URL = 'https://xixtziapkqhdqalrpgfc.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpeHR6aWFwa3FoZHFhbHJwZ2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExOTA1MjMsImV4cCI6MjEwNjc2NjUyM30.ZMAts03MAZuv4bvJ9ioorT59P8B_STnVUUEXA3IUwUM';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // ===== 全局状态 =====
 let currentUser = null;
@@ -265,28 +292,38 @@ function doLogin() {
   if(!empId || !name || !group) { errEl.textContent = '请填写完整信息'; return; }
   // 首次登录自动注册到数据库
   showLoading('正在登录...');
-  supabase.from('employees').upsert(
+  db.from('employees').upsert(
     { emp_id: empId, name: name, group_name: group },
     { onConflict: 'emp_id' }
   ).then(res => {
-    if(res.error) { console.warn('注册失败:', res.error); }
-    currentUser = { empId, name, group };
-    document.getElementById('login-page').style.display = 'none';
-    document.getElementById('user-info').textContent = name + ' | ' + group;
-    initApp();
+    if(res.error) { console.warn('注册失败:', res.error); errEl.textContent = '云端注册失败：' + res.error.message; }
+    enterSystem(name, group);
+  }).catch(err => {
+    console.error('登录请求异常:', err);
+    errEl.textContent = '连不上服务器，先离线进入，请检查网络';
+    enterSystem(name, group);
+  }).finally(() => {
+    hideLoading();
   });
+}
+function enterSystem(name, group) {
+  currentUser = { name: name, group: group };
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('user-info').textContent = name + ' | ' + group;
+  initApp();
 }
 document.getElementById('login-empid').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-name').focus(); });
 document.getElementById('login-name').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-group').focus(); });
+document.getElementById('login-group').addEventListener('keydown', function(e) { if(e.key==='Enter') { e.preventDefault(); doLogin(); } });
 
 // ===== 从云端加载数据 =====
 async function loadFromCloud() {
   showLoading('从云端同步数据...');
   try {
     const [devRes, empRes, recRes] = await Promise.all([
-      supabase.from('devices').select('*').order('id', { ascending: false }),
-      supabase.from('employees').select('*').order('id', { ascending: false }),
-      supabase.from('records').select('*').order('id', { ascending: false })
+      db.from('devices').select('*').order('id', { ascending: false }),
+      db.from('employees').select('*').order('id', { ascending: false }),
+      db.from('records').select('*').order('id', { ascending: false })
     ]);
     if(devRes.error) console.error('设备加载失败:', devRes.error);
     else devices = devRes.data || [];
@@ -306,10 +343,10 @@ async function syncOffline() {
   for(const op of q) {
     try {
       if(op.action === 'insert') {
-        const { data, error } = await supabase.from(op.table).insert(op.payload);
+        const { data, error } = await db.from(op.table).insert(op.payload);
         if(error) console.error('同步插入失败:', error);
       } else if(op.action === 'delete') {
-        await supabase.from(op.table).delete().eq('id', op.id);
+        await db.from(op.table).delete().eq('id', op.id);
       }
     } catch(e) { console.error('同步异常:', e); }
   }
@@ -322,7 +359,7 @@ async function syncOffline() {
 // ===== 云端写入封装（含离线回退） =====
 async function cloudInsert(table, payload) {
   if(navigator.onLine) {
-    const res = await supabase.from(table).insert(payload);
+    const res = await db.from(table).insert(payload);
     if(res.error) { console.error('插入失败:', res.error); alert('操作失败: ' + res.error.message); }
     return res;
   } else {
@@ -333,7 +370,7 @@ async function cloudInsert(table, payload) {
 }
 async function cloudDelete(table, id) {
   if(navigator.onLine) {
-    const res = await supabase.from(table).delete().eq('id', id);
+    const res = await db.from(table).delete().eq('id', id);
     if(res.error) { console.error('删除失败:', res.error); alert('删除失败: ' + res.error.message); }
     return res;
   } else {
