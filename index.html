@@ -56,6 +56,7 @@ tr:hover{background:#f5f8ff;}
 .badge-success{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
 .badge-warning{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;}
 .badge-danger{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
+.badge-default{background:#fafafa;color:#8c8c8c;border:1px solid #d9d9d9;}
 .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;}
 .modal-overlay.show{display:flex;}
 .modal{background:#fff;border-radius:12px;padding:28px;width:90%;max-width:500px;box-shadow:0 12px 40px rgba(0,0,0,.15);animation:modalIn .2s;}
@@ -88,6 +89,9 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 .login-box .form-group input{max-width:100%;}
 .login-box .btn{width:100%;justify-content:center;padding:10px;font-size:15px;}
 .login-error{color:#f5222d;font-size:13px;text-align:center;margin-top:8px;}
+.login-who{font-size:12px;color:#8c8c8c;text-align:center;margin:-6px 0 14px;padding:8px;background:#fafafa;border-radius:6px;}
+.btn-logout{margin-left:12px;padding:4px 14px;font-size:13px;border:1px solid rgba(255,255,255,.6);background:transparent;color:#fff;border-radius:6px;cursor:pointer;}
+.btn-logout:hover{background:rgba(255,255,255,.18);}
 </style>
 </head>
 <body>
@@ -97,14 +101,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
   <div class="login-box">
     <h2>📱 PDA 领用管理系统</h2>
     <div class="form-group"><label>工号</label><input type="text" id="login-empid" placeholder="请输入你的工号" autocomplete="off"></div>
-    <div class="form-group"><label>姓名</label><input type="text" id="login-name" placeholder="请输入你的姓名"></div>
-    <div class="form-group"><label>组别</label>
-      <select id="login-group">
-        <option value="">请选择组别</option>
-        <option>A组</option><option>B组</option><option>C组</option>
-        <option>D组</option><option>E组</option><option>F组</option>
-      </select>
-    </div>
+    <div class="login-who" id="login-who">姓名与组别由系统按工号自动带出</div>
     <button class="btn btn-primary" onclick="doLogin()">登 录</button>
     <div class="login-error" id="login-error"></div>
   </div>
@@ -120,7 +117,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
 <div class="sync-badge online" id="sync-badge">🟢 在线</div>
 
 <!-- 主界面 -->
-<div class="header">PDA 领用管理系统 <span id="user-info" style="font-size:14px;font-weight:400;margin-left:auto;"></span></div>
+<div class="header">PDA 领用管理系统 <span id="user-info" style="font-size:14px;font-weight:400;margin-left:auto;"></span><button class="btn-logout" id="btn-logout" onclick="doLogout()" style="display:none;">退出</button></div>
 
 <div class="tabs">
   <div class="tab active" data-page="dashboard">总览看板</div>
@@ -129,6 +126,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
   <div class="tab" data-page="devices">设备台账</div>
   <div class="tab" data-page="employees">人员管理</div>
   <div class="tab" data-page="unreturned">未归还</div>
+  <div class="tab" data-page="opslogs">操作日志</div>
 </div>
 
 <div class="content">
@@ -227,6 +225,18 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
     </div>
   </div>
 
+  <div class="page" id="page-opslogs">
+    <div class="card">
+      <div class="card-title">操作日志（谁在操作本系统）</div>
+      <div class="btn-group">
+        <button class="btn btn-default" onclick="loadOpsLogs()">刷新</button>
+        <button class="btn btn-default" onclick="exportOpsLogs()">导出日志</button>
+        <div class="search-box"><input type="text" id="search-opslog" placeholder="搜索操作人/工号/动作/FA码..." oninput="renderOpsLogs()"></div>
+      </div>
+      <table><thead><tr><th>时间</th><th>操作人</th><th>工号</th><th>组别</th><th>动作</th><th>详情</th></tr></thead><tbody id="opslog-tbody"></tbody></table>
+    </div>
+  </div>
+
 </div>
 
 <!-- 弹窗 -->
@@ -262,6 +272,46 @@ let currentUser = null;
 let devices = [];
 let employees = [];
 let records = [];
+let opsLogs = [];
+
+// ===== 操作日志（后台可查“谁在操作”）=====
+const LOG_TABLE = 'operation_logs';
+const EMP_CACHE_KEY = 'pda_emp_cache';
+const OP_LOG_CACHE = 'pda_op_log_queue';
+
+function readEmpCache() { try { return JSON.parse(localStorage.getItem(EMP_CACHE_KEY)) || []; } catch(e) { return []; } }
+function writeEmpCache(list) { try { localStorage.setItem(EMP_CACHE_KEY, JSON.stringify(list)); } catch(e) {} }
+function readOpQueue() { try { return JSON.parse(localStorage.getItem(OP_LOG_CACHE)) || []; } catch(e) { return []; } }
+function writeOpQueue(q) { try { localStorage.setItem(OP_LOG_CACHE, JSON.stringify(q)); } catch(e) {} }
+
+let logTableMissing = false;
+async function logOp(action, detail) {
+  const op = {
+    operator: currentUser ? currentUser.name : '-',
+    emp_id: currentUser ? currentUser.emp_id : '-',
+    group_name: currentUser ? currentUser.group : '-',
+    action: action, detail: detail || '', time: nowStr()
+  };
+  opsLogs.unshift(op);
+  if(logTableMissing || !navigator.onLine) { queueLocal(op); renderOpsLogs(); return; }
+  try {
+    const res = await db.from(LOG_TABLE).insert(op);
+    if(res.error) {
+      if(/does not exist|relation|404/i.test(res.error.message || '')) logTableMissing = true;
+      queueLocal(op);
+    }
+  } catch(e) { queueLocal(op); }
+  renderOpsLogs();
+}
+function queueLocal(op) { const q = readOpQueue(); q.push(op); writeOpQueue(q); }
+async function flushOpLogs() {
+  const q = readOpQueue();
+  if(q.length === 0 || !navigator.onLine) return;
+  try {
+    const res = await db.from(LOG_TABLE).insert(q);
+    if(!res.error) writeOpQueue([]);
+  } catch(e) { console.warn('日志补传失败:', e); }
+}
 
 // ===== 离线队列 =====
 const OFFLINE_KEY = 'pda_offline_queue';
@@ -282,37 +332,53 @@ window.addEventListener('offline', updateSyncBadge);
 updateSyncBadge();
 
 // ===== 登录 =====
+let empLoading = false;
+async function ensureEmpLoaded() {
+  if(employees.length > 0 || empLoading) return;
+  empLoading = true;
+  try {
+    const res = await db.from('employees').select('*');
+    if(!res.error && res.data && res.data.length) { employees = res.data; writeEmpCache(employees); }
+    else { const cached = readEmpCache(); if(cached.length) employees = cached; }
+  } catch(e) {
+    const cached = readEmpCache(); if(cached.length) employees = cached;
+  }
+  empLoading = false;
+}
 function doLogin() {
   const empId = document.getElementById('login-empid').value.trim();
-  const name = document.getElementById('login-name').value.trim();
-  const group = document.getElementById('login-group').value;
   const errEl = document.getElementById('login-error');
-  if(!empId || !name || !group) { errEl.textContent = '请填写完整信息'; return; }
-  // 首次登录自动注册到数据库
-  showLoading('正在登录...');
-  db.from('employees').upsert(
-    { emp_id: empId, name: name, group_name: group },
-    { onConflict: 'emp_id' }
-  ).then(res => {
-    if(res.error) { console.warn('注册失败:', res.error); errEl.textContent = '云端注册失败：' + res.error.message; }
-    enterSystem(name, group);
-  }).catch(err => {
-    console.error('登录请求异常:', err);
-    errEl.textContent = '连不上服务器，先离线进入，请检查网络';
-    enterSystem(name, group);
-  }).finally(() => {
-    hideLoading();
-  });
+  if(!empId) { errEl.textContent = '请输入工号'; return; }
+  if(employees.length === 0) { errEl.textContent = '人员名单尚未加载，请检查网络后重试'; ensureEmpLoaded(); return; }
+  const emp = employees.find(e => (e.emp_id || '').trim().toLowerCase() === empId.toLowerCase());
+  if(!emp) { errEl.textContent = '工号 ' + empId + ' 未登记，请联系管理员在「人员管理」中添加'; return; }
+  // 登录不再写入人员表；姓名/组别一律以名单为准，避免乱填污染数据
+  enterSystem(emp);
 }
-function enterSystem(name, group) {
-  currentUser = { name: name, group: group };
+function enterSystem(emp) {
+  currentUser = { name: emp.name, group: emp.group_name || '-', emp_id: (emp.emp_id || '').trim() };
   document.getElementById('login-page').style.display = 'none';
-  document.getElementById('user-info').textContent = name + ' | ' + group;
+  document.getElementById('user-info').textContent = currentUser.name + ' | ' + currentUser.group;
+  logOp('登录', '进入系统');
   initApp();
 }
-document.getElementById('login-empid').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-name').focus(); });
-document.getElementById('login-name').addEventListener('keydown', function(e) { if(e.key==='Enter') document.getElementById('login-group').focus(); });
-document.getElementById('login-group').addEventListener('keydown', function(e) { if(e.key==='Enter') { e.preventDefault(); doLogin(); } });
+function doLogout() {
+  if(!currentUser) return;
+  logOp('退出', '退出系统');
+  currentUser = null;
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('login-page').style.display = '';
+  document.getElementById('login-empid').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('user-info').textContent = '';
+}
+document.getElementById('login-empid').addEventListener('keydown', function(e) { if(e.key==='Enter') { e.preventDefault(); doLogin(); } });
+// 页面启动即加载人员名单（登录校验依赖它），并优先用本地缓存保证断网可登录
+(function bootEmpList() {
+  const cached = readEmpCache();
+  if(cached.length) employees = cached;
+  ensureEmpLoaded();
+})();
 
 // ===== 从云端加载数据 =====
 async function loadFromCloud() {
@@ -326,7 +392,7 @@ async function loadFromCloud() {
     if(devRes.error) console.error('设备加载失败:', devRes.error);
     else devices = devRes.data || [];
     if(empRes.error) console.error('人员加载失败:', empRes.error);
-    else employees = empRes.data || [];
+    else { employees = empRes.data || []; if(employees.length) writeEmpCache(employees); }
     if(recRes.error) console.error('记录加载失败:', recRes.error);
     else records = recRes.data || [];
   } catch(e) { console.error('加载异常:', e); }
@@ -335,6 +401,7 @@ async function loadFromCloud() {
 
 // ===== 同步离线队列 =====
 async function syncOffline() {
+  await flushOpLogs();
   const q = getOfflineQueue();
   if(q.length === 0) return;
   showLoading('同步离线数据 (' + q.length + ' 条)...');
@@ -354,8 +421,23 @@ async function syncOffline() {
   hideLoading();
 }
 
-// ===== 云端写入封装（含离线回退） =====
+// ===== 云端写入封装（含离线回退 + 操作日志） =====
+function opMeta(table, obj) {
+  if(table === 'records') {
+    const isOut = obj.type === '领用';
+    return { action: isOut ? '设备领用' : '设备归还', detail: 'FA码:' + (obj.fa || '-') + ' SN码:' + (obj.sn || '-') + ' 使用工号:' + (obj.emp_id || '-') };
+  }
+  if(table === 'devices') return { action: '新增设备', detail: 'FA码:' + (obj.fa || '-') + ' 组别:' + (obj.group_name || '-') };
+  if(table === 'employees') return { action: '新增人员', detail: '工号:' + (obj.emp_id || '-') + ' 姓名:' + (obj.name || '-') };
+  return { action: '数据写入', detail: table };
+}
 async function cloudInsert(table, payload) {
+  const meta = opMeta(table, Array.isArray(payload) ? (payload[0] || {}) : payload);
+  const res = await insertCloud(table, payload);
+  if(!res || !res.error) logOp(meta.action, meta.detail + (Array.isArray(payload) ? '（共' + payload.length + '条）' : ''));
+  return res;
+}
+async function insertCloud(table, payload) {
   if(navigator.onLine) {
     const res = await db.from(table).insert(payload);
     if(res.error) { console.error('插入失败:', res.error); alert('操作失败: ' + res.error.message); }
@@ -367,6 +449,14 @@ async function cloudInsert(table, payload) {
   }
 }
 async function cloudDelete(table, id) {
+  let detail = '记录ID:' + id;
+  if(table === 'devices') { const d = devices.find(x => x.id === id); if(d) detail = 'FA码:' + (d.fa || '-') + ' 组别:' + (d.group_name || '-'); }
+  if(table === 'employees') { const e = employees.find(x => x.id === id); if(e) detail = '工号:' + (e.emp_id || '-') + ' 姓名:' + (e.name || '-'); }
+  const res = await deleteCloud(table, id);
+  if(!res || !res.error) logOp(table === 'devices' ? '删除设备' : table === 'employees' ? '删除人员' : '删除记录', detail);
+  return res;
+}
+async function deleteCloud(table, id) {
   if(navigator.onLine) {
     const res = await db.from(table).delete().eq('id', id);
     if(res.error) { console.error('删除失败:', res.error); alert('删除失败: ' + res.error.message); }
@@ -378,8 +468,49 @@ async function cloudDelete(table, id) {
   }
 }
 
+// ===== 操作日志：加载 / 渲染 / 导出 =====
+async function loadOpsLogs() {
+  if(!navigator.onLine) { renderOpsLogs(); alert('当前离线，显示的是本地缓存的日志'); return; }
+  showLoading('加载操作日志...');
+  try {
+    await flushOpLogs();
+    const res = await db.from(LOG_TABLE).select('*').order('id', { ascending: false }).limit(500);
+    if(res.error) console.error('日志加载失败:', res.error.message);
+    else opsLogs = res.data || [];
+  } catch(e) { console.error('日志加载异常:', e); }
+  hideLoading();
+  renderOpsLogs();
+}
+function renderOpsLogs() {
+  const tb = document.getElementById('opslog-tbody');
+  if(!tb) return;
+  const kw = (document.getElementById('search-opslog') ? document.getElementById('search-opslog').value : '').toLowerCase();
+  const list = opsLogs.filter(l => {
+    if(!kw) return true;
+    return ((l.operator || '') + ' ' + (l.emp_id || '') + ' ' + (l.action || '') + ' ' + (l.detail || '')).toLowerCase().indexOf(kw) > -1;
+  });
+  let html = '';
+  if(list.length === 0) html = '<tr><td colspan="6" class="empty">暂无操作日志</td></tr>';
+  else {
+    list.slice(0, 300).forEach(l => {
+      const color = l.action === '登录' ? 'badge-success' : l.action === '退出' ? 'badge-default' : l.action.indexOf('删除') > -1 ? 'badge-danger' : 'badge-warning';
+      html += '<tr><td>' + (l.time || '-') + '</td><td>' + (l.operator || '-') + '</td><td>' + (l.emp_id || '-') + '</td><td>' + (l.group_name || '-') + '</td>';
+      html += '<td><span class="badge ' + color + '">' + (l.action || '-') + '</span></td><td>' + (l.detail || '') + '</td></tr>';
+    });
+  }
+  tb.innerHTML = html;
+}
+function exportOpsLogs() {
+  let csv = '\uFEFF时间,操作人,工号,组别,动作,详情\n';
+  opsLogs.forEach(l => {
+    csv += (l.time || '') + ',' + (l.operator || '') + ',' + (l.emp_id || '') + ',' + (l.group_name || '') + ',' + (l.action || '') + ',"' + String(l.detail || '').replace(/"/g, '""') + '"\n';
+  });
+  downloadFile('操作日志.csv', csv);
+}
+
 // ===== 初始化 =====
 async function initApp() {
+  document.getElementById('btn-logout').style.display = 'inline-flex';
   await loadFromCloud();
   renderDashboard();
 }
@@ -397,7 +528,7 @@ document.querySelectorAll('.tab').forEach(function(t) {
 
 function refreshCurrent() {
   const active = document.querySelector('.tab.active').getAttribute('data-page');
-  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned };
+  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned, opslogs: renderOpsLogs };
   if(map[active]) map[active]();
 }
 
