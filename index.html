@@ -278,6 +278,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
   <div class="page" id="page-opslogs">
     <div class="card">
       <div class="card-title">操作日志（谁在操作本系统）</div>
+      <div id="opslog-note"></div>
       <div class="btn-group">
         <button class="btn btn-default" onclick="loadOpsLogs()">刷新</button>
         <button class="btn btn-default" onclick="exportOpsLogs()">导出日志</button>
@@ -523,15 +524,32 @@ async function deleteCloud(table, id) {
 
 // ===== 操作日志：加载 / 渲染 / 导出 =====
 async function loadOpsLogs() {
-  if(!navigator.onLine) { renderOpsLogs(); alert('当前离线，显示的是本地缓存的日志'); return; }
-  showLoading('加载操作日志...');
-  try {
-    await flushOpLogs();
-    const res = await db.from(LOG_TABLE).select('*').order('id', { ascending: false }).limit(500);
-    if(res.error) console.error('日志加载失败:', res.error.message);
-    else opsLogs = res.data || [];
-  } catch(e) { console.error('日志加载异常:', e); }
-  hideLoading();
+  const note = document.getElementById('opslog-note');
+  let cloud = [];
+  if(navigator.onLine && !logTableMissing) {
+    showLoading('加载操作日志...');
+    try {
+      await flushOpLogs();
+      const res = await db.from(LOG_TABLE).select('*').order('id', { ascending: false }).limit(500);
+      if(res.error) {
+        if(/does not exist|relation|404|permission/i.test(res.error.message || '')) logTableMissing = true;
+        console.error('日志加载失败:', res.error.message);
+      } else cloud = res.data || [];
+    } catch(e) { console.error('日志加载异常:', e); }
+    hideLoading();
+  }
+  const local = readOpQueue();
+  const seen = new Set();
+  const merged = [];
+  const key = l => (l.time || '') + '|' + (l.operator || '') + '|' + (l.action || '') + '|' + (l.detail || '');
+  opsLogs.concat(cloud).concat(local).forEach(l => { const k = key(l); if(!seen.has(k)) { seen.add(k); merged.push(l); } });
+  merged.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+  opsLogs = merged;
+  if(note) {
+    if(logTableMissing) note.innerHTML = '<div class="info-box danger">⚠ 日志表 operation_logs 尚未创建或无读取权限：当前仅显示<b>本浏览器缓存</b>的日志，换电脑、换浏览器或清除缓存后会丢失。请在 Supabase 的 SQL Editor 执行《创建操作日志表.sql》后点「刷新」。</div>';
+    else if(!navigator.onLine) note.innerHTML = '<div class="info-box warning">当前离线，显示的是本机缓存与上次加载的日志。</div>';
+    else note.innerHTML = '';
+  }
   renderOpsLogs();
 }
 function renderOpsLogs() {
@@ -581,7 +599,7 @@ document.querySelectorAll('.tab').forEach(function(t) {
 
 function refreshCurrent() {
   const active = document.querySelector('.tab.active').getAttribute('data-page');
-  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned, daily: renderDaily, opslogs: renderOpsLogs };
+  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned, daily: renderDaily, opslogs: loadOpsLogs };
   if(map[active]) map[active]();
 }
 
