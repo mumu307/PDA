@@ -41,6 +41,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft Y
 .btn-default{background:#fff;color:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color:#1890ff;border-color:#1890ff;}
 .btn-sm{padding:5px 12px;font-size:12px;}
 .btn-group{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.proxy-box{border:1px dashed #ffd591;background:#fffbf0;border-radius:8px;padding:14px 16px;margin-bottom:16px;}
+.proxy-box .info-box{margin-top:0;}
 input[type=text],input[type=date],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}
 input:focus,select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}
 input[type=file]{display:none;}
@@ -54,6 +56,7 @@ th{background:#fafafa;font-weight:600;color:#555;position:sticky;top:0;}
 tr:hover{background:#f5f8ff;}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;}
 .badge-success{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f;}
+.badge-info{background:#e6f7ff;color:#1890ff;border:1px solid #91d5ff;}
 .badge-warning{background:#fff7e6;color:#fa8c16;border:1px solid #ffd591;}
 .badge-danger{background:#fff2f0;color:#f5222d;border:1px solid #ffccc7;}
 .badge-default{background:#fafafa;color:#8c8c8c;border:1px solid #d9d9d9;}
@@ -156,7 +159,14 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
       <div class="card-title">设备领用</div>
       <div class="form-row">
         <div class="form-group"><label>FA码 / SN码（扫码或手动输入）</label><input type="text" id="co-code" placeholder="请扫描或输入FA码/SN码" autocomplete="off"></div>
-        <div class="form-group"><label>员工工号</label><input type="text" id="co-empid" placeholder="请输入员工工号" autocomplete="off"></div>
+        <div class="form-group"><label>员工工号</label><input type="text" id="co-empid" placeholder="请输入员工工号" autocomplete="off" oninput="checkCoEmpId()"></div>
+      </div>
+      <div class="proxy-box" id="co-proxy" style="display:none;">
+        <div class="info-box warning">工号 <b id="co-proxy-id">-</b> 不在本组名单。若为外部门支援人员，请由你代为登记；该记录将标注为支援领用，并计入其所属部门。</div>
+        <div class="form-row">
+          <div class="form-group"><label>支援人员姓名</label><input type="text" id="co-proxy-name" placeholder="请输入本人姓名" autocomplete="off"></div>
+          <div class="form-group"><label>所属部门</label><input type="text" id="co-proxy-dept" placeholder="如：SMT二部 / 外协-XX公司" autocomplete="off"></div>
+        </div>
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" onclick="confirmCheckout()">确认领用</button>
@@ -466,7 +476,9 @@ async function syncOffline() {
 function opMeta(table, obj) {
   if(table === 'records') {
     const isOut = obj.type === '领用';
-    return { action: isOut ? '设备领用' : '设备归还', detail: 'FA码:' + (obj.fa || '-') + ' SN码:' + (obj.sn || '-') + ' 使用工号:' + (obj.emp_id || '-') };
+    let d = 'FA码:' + (obj.fa || '-') + ' SN码:' + (obj.sn || '-') + ' 使用工号:' + (obj.emp_id || '-');
+    if (obj.proxy) d += ' [外部门支援] ' + (obj.who_name || '-') + '/' + (obj.who_dept || '-');
+    return { action: isOut ? '设备领用' : '设备归还', detail: d };
   }
   if(table === 'devices') return { action: '新增设备', detail: 'FA码:' + (obj.fa || '-') + ' 组别:' + (obj.group_name || '-') };
   if(table === 'employees') return { action: '新增人员', detail: '工号:' + (obj.emp_id || '-') + ' 姓名:' + (obj.name || '-') };
@@ -612,11 +624,31 @@ function renderDashboard() {
   if(recent.length === 0) rh = '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
   else {
     recent.forEach(r => {
-      const emp = employees.find(e => e.emp_id === r.emp_id);
-      rh += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td><span class="badge badge-warning">领用中</span></td></tr>';
+      const w = whoOf(r);
+      rh += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td><span class="badge badge-warning">领用中</span></td></tr>';
     });
   }
   document.getElementById('recent-tbody').innerHTML = rh;
+}
+
+// ===== 领用人员解析（本组名单优先，支援人员用记录内快照）=====
+// 支援人员不写入 employees 表，姓名与部门记在领用记录自身（who_name/who_dept），
+// 这样即使日后对方调走、名单清理，历史记录仍显示当时的真实归属。
+function whoOf(r) {
+  const e = empOf(r.emp_id);
+  if(e) return { name: e.name || '-', dept: e.group_name || '-', proxy: false };
+  if(r.who_name || r.who_dept) return { name: r.who_name || '-', dept: r.who_dept || '外部门支援', proxy: true };
+  return { name: '未知', dept: '未知组别', proxy: false };
+}
+function checkCoEmpId() {
+  const empId = document.getElementById('co-empid').value.trim();
+  const box = document.getElementById('co-proxy');
+  if(!box) return;
+  const known = !!empId && !!empOf(empId);
+  const show = !!empId && !known;
+  box.style.display = show ? 'block' : 'none';
+  if(show) document.getElementById('co-proxy-id').textContent = empId;
+  else { document.getElementById('co-proxy-name').value = ''; document.getElementById('co-proxy-dept').value = ''; }
 }
 
 // ===== 领用登记 =====
@@ -627,26 +659,33 @@ async function confirmCheckout() {
   if(!code || !empId) { msgEl.innerHTML = '<div class="info-box danger">请填写FA/SN码和员工工号</div>'; return; }
   const device = devices.find(d => d.fa === code || d.sn === code);
   if(!device) { msgEl.innerHTML = '<div class="info-box danger">未找到该设备（FA/SN码：'+code+'），请先在设备台账中添加</div>'; return; }
-  const emp = employees.find(e => e.emp_id === empId);
-  if(!emp) { msgEl.innerHTML = '<div class="info-box danger">未找到该员工（工号：'+empId+'），请先在人员管理中添加</div>'; return; }
+  const emp = empOf(empId);
+  let whoName = '', whoDept = '', isProxy = false;
+  if(emp) { whoName = emp.name; whoDept = emp.group_name || '-'; }
+  else {
+    whoName = document.getElementById('co-proxy-name').value.trim();
+    whoDept = document.getElementById('co-proxy-dept').value.trim();
+    if(!whoName || !whoDept) { msgEl.innerHTML = '<div class="info-box danger">工号 '+empId+' 不在本组名单。外部门支援领用请补填「支援人员姓名」和「所属部门」；本组人员请先在人员管理中添加。</div>'; checkCoEmpId(); return; }
+    isProxy = true;
+  }
   const inUse = records.find(r => r.fa === device.fa && r.status === '领用');
   if(inUse) {
-    const bEmp = employees.find(e => e.emp_id === inUse.emp_id);
-    msgEl.innerHTML = '<div class="info-box danger">该设备已被 '+(bEmp?bEmp.name:'-')+' 领用且未归还</div>';
+    const w = whoOf(inUse);
+    msgEl.innerHTML = '<div class="info-box danger">该设备已被 '+w.name+' 领用且未归还</div>';
     return;
   }
   showLoading('提交中...');
   const ts = nowStr();
   const newRecord = { type: '领用', fa: device.fa, sn: device.sn, emp_id: empId, time: ts, status: '领用' };
+  if(isProxy) { newRecord.who_name = whoName; newRecord.who_dept = whoDept; newRecord.proxy = true; }
   await cloudInsert('records', newRecord);
-  records.push({ ...newRecord, emp_id: empId });
+  records.push({ ...newRecord });
   hideLoading();
-  msgEl.innerHTML = '<div class="info-box"><b>'+emp.name+'</b>（'+emp.emp_id+' / '+emp.group_name+'）已成功领用<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span></div>';
-  document.getElementById('co-code').value = '';
-  document.getElementById('co-empid').value = '';
+  msgEl.innerHTML = '<div class="info-box"><b>'+whoName+'</b>（'+empId+' / '+whoDept+(isProxy?' · 支援领用':'')+'）已成功领用<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span></div>';
+  clearCheckout();
   renderCoToday();
 }
-function clearCheckout() { document.getElementById('co-code').value=''; document.getElementById('co-empid').value=''; document.getElementById('co-msg').innerHTML=''; }
+function clearCheckout() { document.getElementById('co-code').value=''; document.getElementById('co-empid').value=''; document.getElementById('co-msg').innerHTML=''; checkCoEmpId(); }
 
 function renderCoToday() {
   const today = todayStr();
@@ -655,8 +694,8 @@ function renderCoToday() {
   if(list.length === 0) html = '<tr><td colspan="7" class="empty">暂无今日领用记录</td></tr>';
   else {
     list.forEach(r => {
-      const emp = employees.find(e => e.emp_id === r.emp_id);
-      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td><td><span class="badge badge-warning">已领用</span></td></tr>';
+      const w = whoOf(r);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+r.emp_id+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td><td><span class="badge badge-warning">已领用</span></td></tr>';
     });
   }
   document.getElementById('co-today-tbody').innerHTML = html;
@@ -674,9 +713,9 @@ function queryReturn() {
   if(!device) { msgEl.innerHTML = '<div class="info-box danger">未找到该设备</div>'; return; }
   const activeRecord = records.find(r => r.fa === device.fa && r.status === '领用');
   if(!activeRecord) { msgEl.innerHTML = '<div class="info-box warning">该设备当前不在领用状态（可能在库）</div>'; return; }
-  const emp = employees.find(e => e.emp_id === activeRecord.emp_id);
-  pendingReturn = { device, record: activeRecord, emp };
-  msgEl.innerHTML = '<div class="info-box">查询到领用信息：<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span><br>领用人：<b>'+(emp?emp.name:'未知')+'</b>（'+activeRecord.emp_id+' / '+(emp?emp.group_name:'-')+'）<br>领用时间：'+activeRecord.time+'</div>';
+  const w = whoOf(activeRecord);
+  pendingReturn = { device, record: activeRecord, who: w };
+  msgEl.innerHTML = '<div class="info-box">查询到领用信息：<br>FA码：<span class="highlight">'+device.fa+'</span> &nbsp; SN码：<span class="highlight">'+device.sn+'</span><br>领用人：<b>'+w.name+'</b>（'+activeRecord.emp_id+' / '+w.dept+(w.proxy?' · 支援领用':'')+'）<br>领用时间：'+activeRecord.time+'</div>';
   document.getElementById('btn-return').style.display = 'inline-flex';
 }
 async function confirmReturn() {
@@ -685,6 +724,7 @@ async function confirmReturn() {
   const ts = nowStr();
   pendingReturn.record.status = '已归还';
   const backRec = { type:'归还', fa:pendingReturn.device.fa, sn:pendingReturn.device.sn, emp_id:pendingReturn.record.emp_id, time:ts, status:'已归还' };
+  if(pendingReturn.who.proxy) { backRec.who_name = pendingReturn.who.name; backRec.who_dept = pendingReturn.who.dept; backRec.proxy = true; }
   await cloudInsert('records', backRec);
   records.unshift(backRec);
   applyComputedStatus();
@@ -701,8 +741,8 @@ function renderRtToday() {
   if(list.length === 0) html = '<tr><td colspan="6" class="empty">暂无今日归还记录</td></tr>';
   else {
     list.forEach(r => {
-      const emp = employees.find(e => e.emp_id === r.emp_id);
-      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'-')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td></tr>';
+      const w = whoOf(r);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+r.emp_id+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td></tr>';
     });
   }
   document.getElementById('rt-today-tbody').innerHTML = html;
@@ -917,8 +957,8 @@ function renderUnreturned() {
   if(list.length === 0) html = '<tr><td colspan="7" class="empty">所有设备均已归还</td></tr>';
   else {
     list.forEach(r => {
-      const emp = employees.find(e => e.emp_id === r.emp_id);
-      html += '<tr><td>'+(r.time||'-')+'</td><td>'+(emp?emp.name:'未知')+'</td><td>'+r.emp_id+'</td><td>'+(emp?emp.group_name:'-')+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td>';
+      const w = whoOf(r);
+      html += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+r.emp_id+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td>'+(r.sn||'-')+'</td>';
       html += '<td><button class="btn btn-success btn-sm" onclick="quickReturn(\''+r.fa+'\')">快速归还</button></td></tr>';
     });
   }
@@ -929,6 +969,8 @@ async function quickReturn(fa) {
   showLoading('归还中...');
   const ts = nowStr();
   const backRec = { type:'归还', fa:record.fa, sn:record.sn, emp_id:record.emp_id, time:ts, status:'已归还' };
+  const w0 = whoOf(record);
+  if(w0.proxy) { backRec.who_name = w0.name; backRec.who_dept = w0.dept; backRec.proxy = true; }
   await cloudInsert('records', backRec);
   records.unshift(backRec);
   applyComputedStatus();
@@ -936,10 +978,10 @@ async function quickReturn(fa) {
   renderUnreturned();
 }
 function exportUnreturned() {
-  let csv = '\uFEFF领用时间,姓名,工号,组别,FA码,SN码\n';
+  let csv = '\uFEFF领用时间,姓名,工号,组别或部门,是否支援,FA码,SN码\n';
   records.filter(r => r.status==='领用').forEach(r => {
-    const emp = employees.find(e => e.emp_id === r.emp_id);
-    csv += (r.time||'')+','+(emp?emp.name:'')+','+r.emp_id+','+(emp?emp.group_name:'')+','+(r.fa||'')+','+(r.sn||'')+'\n';
+    const w = whoOf(r);
+    csv += (r.time||'')+','+w.name+','+r.emp_id+','+w.dept+','+(w.proxy?'是':'否')+','+(r.fa||'')+','+(r.sn||'')+'\n';
   });
   downloadFile('未归还清单.csv', csv);
 }
@@ -971,8 +1013,9 @@ function applyComputedStatus() {
   pairRecords().forEach(p => { p.out.status = p.returned ? '已归还' : '领用'; });
 }
 function openRecords() { return pairRecords().filter(p => !p.returned).map(p => p.out); }
-function empOf(empId) { return employees.find(e => (e.emp_id || '').trim() === (empId || '').trim()); }
+function empOf(empId) { const k = (empId || '').trim().toLowerCase(); return employees.find(e => (e.emp_id || '').trim().toLowerCase() === k); }
 function groupOf(empId) { const e = empOf(empId); return e && e.group_name ? e.group_name : '未知组别'; }
+function deptOf(r) { return whoOf(r).dept; }
 
 function localDateStr(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
 function setDailyRange(days) {
@@ -995,7 +1038,8 @@ function dailyFilteredPairs() {
     if (!day) return false;
     if (from && day < from) return false;
     if (to && day > to) return false;
-    if (g && groupOf(p.out.emp_id) !== g) return false;
+    if (g === '__proxy__' && !whoOf(p.out).proxy) return false;
+    if (g && g !== '__proxy__' && deptOf(p.out) !== g) return false;
     if (st === 'out' && p.returned) return false;
     if (st === 'back' && !p.returned) return false;
     return true;
@@ -1006,10 +1050,10 @@ function renderDaily() {
   const sel = document.getElementById('dy-group');
   const groups = [];
   employees.forEach(e => { if (e.group_name && groups.indexOf(e.group_name) === -1) groups.push(e.group_name); });
-  pairRecords().forEach(p => { const g = groupOf(p.out.emp_id); if (g !== '未知组别' && groups.indexOf(g) === -1) groups.push(g); });
+  const hasProxy = pairRecords().some(p => whoOf(p.out).proxy);
   const cur = sel.value;
-  sel.innerHTML = '<option value="">全部组别</option>' + groups.map(x => '<option>' + x + '</option>').join('');
-  sel.value = groups.indexOf(cur) > -1 ? cur : '';
+  sel.innerHTML = '<option value="">全部组别/部门</option>' + (hasProxy ? '<option value="__proxy__">仅外部门支援</option>' : '') + groups.map(x => '<option>' + x + '</option>').join('');
+  sel.value = (cur === '__proxy__' && hasProxy) || groups.indexOf(cur) > -1 ? cur : '';
 
   const list = dailyFilteredPairs();
 
@@ -1020,13 +1064,13 @@ function renderDaily() {
   document.getElementById('dy-stat-back').textContent = totalBack;
   document.getElementById('dy-stat-open').textContent = totalOut - totalBack;
   document.getElementById('dy-stat-rate').textContent = totalOut ? Math.round(totalBack / totalOut * 100) + '%' : '-';
-  document.getElementById('dy-stat-groups').textContent = new Set(list.map(p => groupOf(p.out.emp_id))).size;
+  document.getElementById('dy-stat-groups').textContent = new Set(list.map(p => deptOf(p.out))).size;
   document.getElementById('dy-stat-dev').textContent = new Set(list.map(p => p.out.fa)).size;
 
-  // 汇总表：日期 × 组别
+  // 汇总表：日期 × 组别/部门
   const sum = {};
   list.forEach(p => {
-    const day = (p.out.time || '').slice(0, 10), g = groupOf(p.out.emp_id);
+    const day = (p.out.time || '').slice(0, 10), g = deptOf(p.out);
     const k = day + '|' + g;
     if (!sum[k]) sum[k] = { day, group: g, out: 0, back: 0 };
     sum[k].out++;
@@ -1048,8 +1092,8 @@ function renderDaily() {
   let lh = '';
   if (sorted.length === 0) lh = '<tr><td colspan="8" class="empty">所选范围内暂无领用记录</td></tr>';
   else sorted.forEach(p => {
-    const e = empOf(p.out.emp_id);
-    lh += '<tr><td>' + (p.out.time || '-') + '</td><td>' + groupOf(p.out.emp_id) + '</td><td>' + (e ? e.name : '-') + '</td><td>' + (p.out.emp_id || '-') + '</td>' +
+    const w = whoOf(p.out);
+    lh += '<tr><td>' + (p.out.time || '-') + '</td><td>' + w.dept + '</td><td>' + w.name + (w.proxy ? ' <span class="badge badge-info">支援</span>' : '') + '</td><td>' + (p.out.emp_id || '-') + '</td>' +
       '<td>' + (p.out.fa || '-') + '</td><td>' + (p.out.sn || '-') + '</td>' +
       '<td>' + (p.returned ? '<span class="badge badge-success">已归还</span>' : '<span class="badge badge-danger">未归还</span>') + '</td>' +
       '<td>' + (p.backAt || '-') + '</td></tr>';
@@ -1062,20 +1106,20 @@ function exportDaily(type) {
   if (type === 'sum') {
     const sum = {};
     list.forEach(p => {
-      const day = (p.out.time || '').slice(0, 10), g = groupOf(p.out.emp_id), k = day + '|' + g;
+      const day = (p.out.time || '').slice(0, 10), g = deptOf(p.out), k = day + '|' + g;
       if (!sum[k]) sum[k] = { day, group: g, out: 0, back: 0 };
       sum[k].out++; if (p.returned) sum[k].back++;
     });
-    let csv = '\uFEFF日期,组别,领用(把),已归还,未归还,归还率\n';
+    let csv = '\uFEFF日期,组别或部门,领用(把),已归还,未归还,归还率\n';
     Object.values(sum).sort((a, b) => b.day.localeCompare(a.day) || a.group.localeCompare(b.group, 'zh')).forEach(r => {
       csv += r.day + ',' + r.group + ',' + r.out + ',' + r.back + ',' + (r.out - r.back) + ',' + Math.round(r.back / r.out * 100) + '%\n';
     });
     downloadFile('每日各组汇总.csv', csv);
   } else {
-    let csv = '\uFEFF领用时间,归还时间,组别,姓名,工号,FA码,SN码,状态\n';
+    let csv = '\uFEFF领用时间,归还时间,组别或部门,姓名,工号,是否支援,FA码,SN码,状态\n';
     list.slice().sort((a, b) => (a.out.time || '').localeCompare(b.out.time || '')).forEach(p => {
-      const e = empOf(p.out.emp_id);
-      csv += (p.out.time || '') + ',' + (p.backAt || '') + ',' + groupOf(p.out.emp_id) + ',' + (e ? e.name : '') + ',' + (p.out.emp_id || '') + ',' + (p.out.fa || '') + ',' + (p.out.sn || '') + ',' + (p.returned ? '已归还' : '未归还') + '\n';
+      const w = whoOf(p.out);
+      csv += (p.out.time || '') + ',' + (p.backAt || '') + ',' + w.dept + ',' + w.name + ',' + (p.out.emp_id || '') + ',' + (w.proxy ? '是' : '否') + ',' + (p.out.fa || '') + ',' + (p.out.sn || '') + ',' + (p.returned ? '已归还' : '未归还') + '\n';
     });
     downloadFile('领用归还时间明细.csv', csv);
   }
