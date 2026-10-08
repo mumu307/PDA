@@ -41,7 +41,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Microsoft Y
 .btn-default{background:#fff;color:#333;border:1px solid #d9d9d9;}.btn-default:hover:not(:disabled){color:#1890ff;border-color:#1890ff;}
 .btn-sm{padding:5px 12px;font-size:12px;}
 .btn-group{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
-input[type=text],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}
+input[type=text],input[type=date],select{padding:9px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:14px;outline:none;transition:border-color .2s;}
 input:focus,select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,.15);}
 input[type=file]{display:none;}
 .form-group{margin-bottom:16px;}
@@ -126,6 +126,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
   <div class="tab" data-page="devices">设备台账</div>
   <div class="tab" data-page="employees">人员管理</div>
   <div class="tab" data-page="unreturned">未归还</div>
+  <div class="tab" data-page="daily">每日明细</div>
   <div class="tab" data-page="opslogs">操作日志</div>
 </div>
 
@@ -222,6 +223,45 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
       <div class="card-title">未归还清单</div>
       <div class="btn-group"><button class="btn btn-default" onclick="exportUnreturned()">导出清单</button></div>
       <table><thead><tr><th>领用时间</th><th>姓名</th><th>工号</th><th>组别</th><th>FA码</th><th>SN码</th><th>操作</th></tr></thead><tbody id="unreturned-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="page" id="page-daily">
+    <div class="card">
+      <div class="card-title">每日明细统计</div>
+      <div class="btn-group">
+        <label style="font-size:13px;color:#555;">起</label>
+        <input type="date" id="dy-from" onchange="renderDaily()">
+        <label style="font-size:13px;color:#555;">止</label>
+        <input type="date" id="dy-to" onchange="renderDaily()">
+        <select id="dy-group" onchange="renderDaily()"><option value="">全部组别</option></select>
+        <select id="dy-status" onchange="renderDaily()">
+          <option value="">全部状态</option>
+          <option value="out">仅未归还</option>
+          <option value="back">仅已归还</option>
+        </select>
+        <button class="btn btn-default" onclick="setDailyRange(0)">今天</button>
+        <button class="btn btn-default" onclick="setDailyRange(6)">近7天</button>
+        <button class="btn btn-default" onclick="setDailyRange(-1)">全部</button>
+        <button class="btn btn-default" onclick="exportDaily('sum')">导出汇总</button>
+        <button class="btn btn-default" onclick="exportDaily('list')">导出明细</button>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><div class="label">领用（把）</div><div class="value" id="dy-stat-out">-</div></div>
+        <div class="stat-card"><div class="label">已归还</div><div class="value" id="dy-stat-back">-</div></div>
+        <div class="stat-card"><div class="label">未归还</div><div class="value" id="dy-stat-open">-</div></div>
+        <div class="stat-card"><div class="label">归还率</div><div class="value" id="dy-stat-rate">-</div></div>
+        <div class="stat-card"><div class="label">涉及组数</div><div class="value" id="dy-stat-groups">-</div></div>
+        <div class="stat-card"><div class="label">涉及设备</div><div class="value" id="dy-stat-dev">-</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">每天各组领用与归还汇总</div>
+      <table><thead><tr><th>日期</th><th>组别</th><th>领用（把）</th><th>已归还</th><th>未归还</th><th>归还率</th></tr></thead><tbody id="daily-sum-tbody"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="card-title">领用时间明细</div>
+      <table><thead><tr><th>领用时间</th><th>组别</th><th>姓名</th><th>工号</th><th>FA码</th><th>SN码</th><th>状态</th><th>归还时间</th></tr></thead><tbody id="daily-list-tbody"></tbody></table>
     </div>
   </div>
 
@@ -395,6 +435,7 @@ async function loadFromCloud() {
     else { employees = empRes.data || []; if(employees.length) writeEmpCache(employees); }
     if(recRes.error) console.error('记录加载失败:', recRes.error);
     else records = recRes.data || [];
+    applyComputedStatus();
   } catch(e) { console.error('加载异常:', e); }
   hideLoading();
 }
@@ -528,7 +569,7 @@ document.querySelectorAll('.tab').forEach(function(t) {
 
 function refreshCurrent() {
   const active = document.querySelector('.tab.active').getAttribute('data-page');
-  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned, opslogs: renderOpsLogs };
+  const map = { dashboard: renderDashboard, checkout: renderCoToday, return: renderRtToday, devices: renderDevices, employees: renderEmps, unreturned: renderUnreturned, daily: renderDaily, opslogs: renderOpsLogs };
   if(map[active]) map[active]();
 }
 
@@ -643,7 +684,10 @@ async function confirmReturn() {
   showLoading('提交中...');
   const ts = nowStr();
   pendingReturn.record.status = '已归还';
-  await cloudInsert('records', { type:'归还', fa:pendingReturn.device.fa, sn:pendingReturn.device.sn, emp_id:pendingReturn.record.emp_id, time:ts, status:'已归还' });
+  const backRec = { type:'归还', fa:pendingReturn.device.fa, sn:pendingReturn.device.sn, emp_id:pendingReturn.record.emp_id, time:ts, status:'已归还' };
+  await cloudInsert('records', backRec);
+  records.unshift(backRec);
+  applyComputedStatus();
   hideLoading();
   document.getElementById('rt-msg').innerHTML = '<div class="info-box">设备已成功归还<br>FA码：<span class="highlight">'+pendingReturn.device.fa+'</span></div>';
   document.getElementById('btn-return').style.display = 'none';
@@ -884,8 +928,10 @@ async function quickReturn(fa) {
   const record = records.find(r => r.fa===fa && r.status==='领用'); if(!record) return;
   showLoading('归还中...');
   const ts = nowStr();
-  record.status = '已归还';
-  await cloudInsert('records', { type:'归还', fa:record.fa, sn:record.sn, emp_id:record.emp_id, time:ts, status:'已归还' });
+  const backRec = { type:'归还', fa:record.fa, sn:record.sn, emp_id:record.emp_id, time:ts, status:'已归还' };
+  await cloudInsert('records', backRec);
+  records.unshift(backRec);
+  applyComputedStatus();
   hideLoading();
   renderUnreturned();
 }
@@ -896,6 +942,143 @@ function exportUnreturned() {
     csv += (r.time||'')+','+(emp?emp.name:'')+','+r.emp_id+','+(emp?emp.group_name:'')+','+(r.fa||'')+','+(r.sn||'')+'\n';
   });
   downloadFile('未归还清单.csv', csv);
+}
+
+// ===== 每日明细统计 =====
+// 注意：领用记录的 status 在归还后并不会回写云端（原实现只补插一条归还记录），
+// 因此统一按“同一FA码在该次领用之后是否存在归还记录”推算真实状态，
+// 并把推算结果回写到内存，修正看板、未归还清单、设备台账与领用校验的口径。
+function recKind(r) { return r.type ? r.type : (r.status === '已归还' ? '归还' : '领用'); }
+function pairRecords() {
+  const backs = records.filter(r => recKind(r) === '归还' && r.fa)
+    .slice().sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const outs = records.filter(r => recKind(r) === '领用' && r.fa)
+    .slice().sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const used = new Set();
+  const pairs = [];
+  outs.forEach(o => {
+    let m = -1;
+    for (let i = 0; i < backs.length; i++) {
+      if (used.has(i) || backs[i].fa !== o.fa) continue;
+      if ((backs[i].time || '') > (o.time || '')) { m = i; break; }
+    }
+    if (m >= 0) used.add(m);
+    pairs.push({ out: o, returned: m >= 0, backAt: m >= 0 ? (backs[m].time || '') : '' });
+  });
+  return pairs;
+}
+function applyComputedStatus() {
+  pairRecords().forEach(p => { p.out.status = p.returned ? '已归还' : '领用'; });
+}
+function openRecords() { return pairRecords().filter(p => !p.returned).map(p => p.out); }
+function empOf(empId) { return employees.find(e => (e.emp_id || '').trim() === (empId || '').trim()); }
+function groupOf(empId) { const e = empOf(empId); return e && e.group_name ? e.group_name : '未知组别'; }
+
+function localDateStr(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+function setDailyRange(days) {
+  const f = document.getElementById('dy-from'), t = document.getElementById('dy-to');
+  if (days < 0) { f.value = ''; t.value = ''; }
+  else {
+    const d = new Date(); t.value = localDateStr(d);
+    d.setDate(d.getDate() - days); f.value = localDateStr(d);
+  }
+  renderDaily();
+}
+
+function dailyFilteredPairs() {
+  const from = document.getElementById('dy-from').value;
+  const to = document.getElementById('dy-to').value;
+  const g = document.getElementById('dy-group').value;
+  const st = document.getElementById('dy-status').value;
+  return pairRecords().filter(p => {
+    const day = (p.out.time || '').slice(0, 10);
+    if (!day) return false;
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    if (g && groupOf(p.out.emp_id) !== g) return false;
+    if (st === 'out' && p.returned) return false;
+    if (st === 'back' && !p.returned) return false;
+    return true;
+  });
+}
+
+function renderDaily() {
+  const sel = document.getElementById('dy-group');
+  const groups = [];
+  employees.forEach(e => { if (e.group_name && groups.indexOf(e.group_name) === -1) groups.push(e.group_name); });
+  pairRecords().forEach(p => { const g = groupOf(p.out.emp_id); if (g !== '未知组别' && groups.indexOf(g) === -1) groups.push(g); });
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部组别</option>' + groups.map(x => '<option>' + x + '</option>').join('');
+  sel.value = groups.indexOf(cur) > -1 ? cur : '';
+
+  const list = dailyFilteredPairs();
+
+  // 顶部统计卡
+  const totalOut = list.length;
+  const totalBack = list.filter(p => p.returned).length;
+  document.getElementById('dy-stat-out').textContent = totalOut;
+  document.getElementById('dy-stat-back').textContent = totalBack;
+  document.getElementById('dy-stat-open').textContent = totalOut - totalBack;
+  document.getElementById('dy-stat-rate').textContent = totalOut ? Math.round(totalBack / totalOut * 100) + '%' : '-';
+  document.getElementById('dy-stat-groups').textContent = new Set(list.map(p => groupOf(p.out.emp_id))).size;
+  document.getElementById('dy-stat-dev').textContent = new Set(list.map(p => p.out.fa)).size;
+
+  // 汇总表：日期 × 组别
+  const sum = {};
+  list.forEach(p => {
+    const day = (p.out.time || '').slice(0, 10), g = groupOf(p.out.emp_id);
+    const k = day + '|' + g;
+    if (!sum[k]) sum[k] = { day, group: g, out: 0, back: 0 };
+    sum[k].out++;
+    if (p.returned) sum[k].back++;
+  });
+  const rows = Object.values(sum).sort((a, b) => b.day.localeCompare(a.day) || a.group.localeCompare(b.group, 'zh'));
+  let sh = '';
+  if (rows.length === 0) sh = '<tr><td colspan="6" class="empty">所选范围内暂无领用记录</td></tr>';
+  else rows.forEach(r => {
+    const open = r.out - r.back;
+    sh += '<tr><td>' + r.day + '</td><td>' + r.group + '</td><td>' + r.out + '</td><td>' + r.back + '</td>' +
+      '<td>' + (open > 0 ? '<span class="badge badge-danger">' + open + '</span>' : '0') + '</td>' +
+      '<td>' + Math.round(r.back / r.out * 100) + '%</td></tr>';
+  });
+  document.getElementById('daily-sum-tbody').innerHTML = sh;
+
+  // 时间明细
+  const sorted = list.slice().sort((a, b) => (b.out.time || '').localeCompare(a.out.time || ''));
+  let lh = '';
+  if (sorted.length === 0) lh = '<tr><td colspan="8" class="empty">所选范围内暂无领用记录</td></tr>';
+  else sorted.forEach(p => {
+    const e = empOf(p.out.emp_id);
+    lh += '<tr><td>' + (p.out.time || '-') + '</td><td>' + groupOf(p.out.emp_id) + '</td><td>' + (e ? e.name : '-') + '</td><td>' + (p.out.emp_id || '-') + '</td>' +
+      '<td>' + (p.out.fa || '-') + '</td><td>' + (p.out.sn || '-') + '</td>' +
+      '<td>' + (p.returned ? '<span class="badge badge-success">已归还</span>' : '<span class="badge badge-danger">未归还</span>') + '</td>' +
+      '<td>' + (p.backAt || '-') + '</td></tr>';
+  });
+  document.getElementById('daily-list-tbody').innerHTML = lh;
+}
+
+function exportDaily(type) {
+  const list = dailyFilteredPairs();
+  if (type === 'sum') {
+    const sum = {};
+    list.forEach(p => {
+      const day = (p.out.time || '').slice(0, 10), g = groupOf(p.out.emp_id), k = day + '|' + g;
+      if (!sum[k]) sum[k] = { day, group: g, out: 0, back: 0 };
+      sum[k].out++; if (p.returned) sum[k].back++;
+    });
+    let csv = '\uFEFF日期,组别,领用(把),已归还,未归还,归还率\n';
+    Object.values(sum).sort((a, b) => b.day.localeCompare(a.day) || a.group.localeCompare(b.group, 'zh')).forEach(r => {
+      csv += r.day + ',' + r.group + ',' + r.out + ',' + r.back + ',' + (r.out - r.back) + ',' + Math.round(r.back / r.out * 100) + '%\n';
+    });
+    downloadFile('每日各组汇总.csv', csv);
+  } else {
+    let csv = '\uFEFF领用时间,归还时间,组别,姓名,工号,FA码,SN码,状态\n';
+    list.slice().sort((a, b) => (a.out.time || '').localeCompare(b.out.time || '')).forEach(p => {
+      const e = empOf(p.out.emp_id);
+      csv += (p.out.time || '') + ',' + (p.backAt || '') + ',' + groupOf(p.out.emp_id) + ',' + (e ? e.name : '') + ',' + (p.out.emp_id || '') + ',' + (p.out.fa || '') + ',' + (p.out.sn || '') + ',' + (p.returned ? '已归还' : '未归还') + '\n';
+    });
+    downloadFile('领用归还时间明细.csv', csv);
+  }
 }
 
 // ===== 通用 =====
