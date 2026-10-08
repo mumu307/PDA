@@ -146,7 +146,7 @@ input[type=checkbox]{width:16px;height:16px;cursor:pointer;}
     </div>
     <div class="card">
       <div class="card-title">各组领用概况</div>
-      <table><thead><tr><th>组别</th><th>总人数</th><th>已领用</th><th>已归还</th><th>未归还</th><th>领用率</th></tr></thead><tbody id="overview-tbody"></tbody></table>
+      <table><thead><tr><th>组别</th><th>总人数</th><th>今日领用</th><th>今日归还</th><th>当前未还</th><th>领用率</th></tr></thead><tbody id="overview-tbody"></tbody></table>
     </div>
     <div class="card">
       <div class="card-title">最近领用记录</div>
@@ -622,17 +622,28 @@ function renderDashboard() {
 
   const groups = [];
   employees.forEach(e => { if(e.group_name && groups.indexOf(e.group_name) === -1) groups.push(e.group_name); });
+  const isProxyRow = r => whoOf(r).proxy;
+  const inGroup = (r, g) => { const w = whoOf(r); return !w.proxy && w.dept === g; };
+  const hasProxyAct = inUse.some(isProxyRow) || todayOut.some(isProxyRow) || todayIn.some(isProxyRow);
   let ovHtml = '';
-  if(groups.length === 0) ovHtml = '<tr><td colspan="6" class="empty">暂无数据</td></tr>';
+  if(groups.length === 0 && !hasProxyAct) ovHtml = '<tr><td colspan="6" class="empty">暂无数据</td></tr>';
   else {
-    groups.forEach(g => {
-      const total = employees.filter(e => e.group_name === g).length;
-      let used = 0;
-      inUse.forEach(r => { const emp = employees.find(e => e.emp_id === r.emp_id); if(emp && emp.group_name === g) used++; });
-      let returned = 0;
-      todayIn.forEach(r => { const emp = employees.find(e => e.emp_id === r.emp_id); if(emp && emp.group_name === g) returned++; });
-      const rate = total > 0 ? (used / total * 100).toFixed(1) + '%' : '0%';
-      ovHtml += '<tr><td>'+g+'</td><td>'+total+'</td><td>'+used+'</td><td>'+returned+'</td><td>'+(used-returned)+'</td><td>'+rate+'</td></tr>';
+    const rows = groups.map(g => ({
+      name: g,
+      total: employees.filter(e => e.group_name === g).length,
+      out: todayOut.filter(r => inGroup(r, g)).length,
+      back: todayIn.filter(r => inGroup(r, g)).length,
+      open: inUse.filter(r => inGroup(r, g)).length
+    }));
+    if(hasProxyAct) rows.push({
+      name: '外部门支援', total: -1,
+      out: todayOut.filter(isProxyRow).length,
+      back: todayIn.filter(isProxyRow).length,
+      open: inUse.filter(isProxyRow).length
+    });
+    rows.forEach(r => {
+      const rate = r.total > 0 ? (r.open / r.total * 100).toFixed(1) + '%' : '—';
+      ovHtml += '<tr><td>'+r.name+'</td><td>'+(r.total >= 0 ? r.total : '—')+'</td><td>'+r.out+'</td><td>'+r.back+'</td><td>'+(r.open > 0 ? '<span class="badge badge-danger">'+r.open+'</span>' : '0')+'</td><td>'+rate+'</td></tr>';
     });
   }
   document.getElementById('overview-tbody').innerHTML = ovHtml;
@@ -643,7 +654,8 @@ function renderDashboard() {
   else {
     recent.forEach(r => {
       const w = whoOf(r);
-      rh += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td><span class="badge badge-warning">领用中</span></td></tr>';
+      const back = r.status !== '领用';
+      rh += '<tr><td>'+(r.time||'-')+'</td><td>'+w.name+(w.proxy?' <span class="badge badge-info">支援</span>':'')+'</td><td>'+w.dept+'</td><td>'+(r.fa||'-')+'</td><td><span class="badge '+(back?'badge-success':'badge-warning')+'">'+(back?'已归还':'领用中')+'</span></td></tr>';
     });
   }
   document.getElementById('recent-tbody').innerHTML = rh;
